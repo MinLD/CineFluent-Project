@@ -1,0 +1,35 @@
+# Tên của workflow, sẽ hiển thị trên tab Actions của GitHub
+name: Deploy frontend to VPS
+
+# Kích hoạt workflow mỗi khi có code được push lên nhánh 'main'
+on:
+  push:
+    branches:
+      - main
+
+# Định nghĩa các công việc (jobs) sẽ được thực thi
+jobs:
+  # Công việc để build và deploy backend
+  deploy-frontend:
+    name: Build and Deploy Frontend
+    # Chạy trên một máy ảo Ubuntu mới nhất
+    runs-on: ubuntu-latest
+    steps:
+      # Bước 1: Lấy source code từ repo về máy ảo
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy Frontend to VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            echo "--- Deploying Frontend ---"
+            cd /hope/fe
+            rm -rf Fe_HopeVn_Version
+            git clone https://github.com/MinLD/Fe_HopeVn_Version.git
+            docker-compose up -d --build
+            docker restart nginx
+            echo "Backend deployed successfully!"

@@ -1,0 +1,54 @@
+@import "tailwindcss";
+@import "react-loading-skeleton/dist/skeleton.css";
+@import "swiper/css";
+@import "swiper/css/navigation";
+@import "swiper/css/pagination";
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
+  --font-pacifico: var(--font-pacifico), cursive;
+}
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* ::-webkit-scrollbar {
+  display: none;
+}
+
+
+.element {
+  scrollbar-width: none; 
+  -ms-overflow-style: none; 
+} */
+/* body {
+  overflow-x: hidden;
+} */
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.swiper-pagination-bullet {
+  background-color: #a8a8a8 !important;
+  opacity: 1;
+}
+
+.swiper-pagination-bullet-active {
+  background-color: #00b14f !important;
+}
+.swiper-pagination {
+  position: static !important; /* Chuyển từ Absolute (trôi) sang Static (nằm cố định) */
+  margin-top: 12px !important; /* Cách nội dung bên trên 20px */
+  bottom: auto !important; /* Xóa bỏ định vị đáy cũ */
+  transform: none !important; /* Xóa bỏ transform nếu có */
+}
