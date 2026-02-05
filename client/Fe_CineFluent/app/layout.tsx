@@ -14,6 +14,7 @@ import { Suspense } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { ConfigProvider, theme } from "antd";
 import { SocketProvider } from "@/app/lib/context/SocketContext";
+import { QueryProvider } from "@/app/providers/QueryProvider";
 
 export const metadata: Metadata = {
   title: "Cinefluent - Learn English Through Movies",
@@ -54,19 +55,21 @@ export default async function RootLayout({
             <GoogleOAuthProvider
               clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}
             >
-              <SmoothLoadingWrapper />
-              <AuthProvider>
-                {/* <SocketProvider> */}
-                <NavProvider>
-                  <Suspense>
-                    <AuthSSRInit />
-                  </Suspense>
-                  <AntdProvider>{children}</AntdProvider>
-                  <HamburgerMenu />
-                  <Toaster position="top-right" closeButton />
-                </NavProvider>
-                {/* </SocketProvider> */}
-              </AuthProvider>
+              <QueryProvider>
+                <SmoothLoadingWrapper />
+                <AuthProvider>
+                  {/* <SocketProvider> */}
+                  <NavProvider>
+                    <Suspense>
+                      <AuthSSRInit />
+                    </Suspense>
+                    <AntdProvider>{children}</AntdProvider>
+                    <HamburgerMenu />
+                    <Toaster position="top-right" closeButton />
+                  </NavProvider>
+                  {/* </SocketProvider> */}
+                </AuthProvider>
+              </QueryProvider>
             </GoogleOAuthProvider>
           </ConfigProvider>
         </body>

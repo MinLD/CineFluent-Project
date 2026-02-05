@@ -30,11 +30,28 @@ const nextConfig: NextConfig = {
   },
 
   images: {
-    domains: ["res.cloudinary.com", "lh3.googleusercontent.com"],
+    domains: [
+      "res.cloudinary.com",
+      "lh3.googleusercontent.com",
+      "i.ytimg.com",
+      "img.youtube.com",
+    ],
     remotePatterns: [
       {
         protocol: "https",
         hostname: "images.pexels.com",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "i.ytimg.com",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "img.youtube.com",
         port: "",
         pathname: "/**",
       },

@@ -1,0 +1,30 @@
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from ..services.learning_service import  evaluate_audio_shadowing_service
+from  ..utils.response import  success_response, error_response
+learning_bp = Blueprint('learning', __name__)
+
+
+@learning_bp.route('/test-audio', methods=['POST'])
+def test_audio_analysis():
+    try:
+        data = request.json
+        
+        original_text = data.get('original_text')
+        audio_base64 = data.get('audio_base64')
+        
+        if not original_text or not audio_base64:
+            return error_response(400, 'Missing original_text or audio_base64')
+        
+        # Gọi AI phân tích audio
+        result = evaluate_audio_shadowing_service(original_text, audio_base64)
+        
+        if result.get('success'):
+            return success_response(data=result['data'], message='Audio analysis completed', code=200)
+        else:
+            return error_response(500, f"AI Error: {result.get('error')}")
+            
+    except Exception as e:
+        return error_response(500, f"Server Error: {str(e)}")
+
+

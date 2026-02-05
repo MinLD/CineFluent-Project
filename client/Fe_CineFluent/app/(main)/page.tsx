@@ -1,6 +1,5 @@
 import CategoriesFetcher from "@/app/components/fetcher_components/CategoriesFetcher";
 import HomePages from "@/app/components/home_page";
-import { Suspense } from "react";
 
 export default async function Home() {
   return (

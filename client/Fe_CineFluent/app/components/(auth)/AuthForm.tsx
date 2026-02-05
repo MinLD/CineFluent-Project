@@ -13,7 +13,6 @@ import ForgotPasswordForm from "@/app/components/forgot_password_form";
 import Logo from "@/app/components/logo";
 import { useRouter } from "next/navigation";
 import { GoogleLogin } from "@react-oauth/google";
-import { axiosClient } from "@/app/lib/services/api_client";
 
 type FormData = {
   email: string;

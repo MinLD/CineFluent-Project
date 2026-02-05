@@ -84,7 +84,7 @@ function MyFooter() {
           </div>
 
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
-            <p>&copy; 2024 SkillTime. Bảo lưu mọi quyền.</p>
+            <p>&copy; 2024 CineFluent. Bảo lưu mọi quyền.</p>
           </div>
         </div>
       </footer>
