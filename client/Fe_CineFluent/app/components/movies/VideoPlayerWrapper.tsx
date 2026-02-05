@@ -368,6 +368,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
               <span className="font-medium">Báo Lỗi</span>
             </button>
           </div>
+          <span />
 
           {/* Subtitle Overlay */}
           <SubtitleOverlay
