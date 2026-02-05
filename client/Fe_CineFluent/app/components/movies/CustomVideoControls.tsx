@@ -86,6 +86,10 @@ export function CustomVideoControls({
     handleProgressClick(e);
   };
 
+  const handleOnShadowing = () => {
+    setShadowingMode(!shadowingMode);
+  };
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
@@ -313,7 +317,7 @@ export function CustomVideoControls({
                 {/* Shadowing Mode */}
                 <div className="border-b border-white/10">
                   <button
-                    onClick={() => setShadowingMode(!shadowingMode)}
+                    onClick={() => handleOnShadowing()}
                     className="w-full px-4 py-3 text-sm text-left transition-colors hover:bg-white/10"
                   >
                     <div className="flex items-center justify-between">

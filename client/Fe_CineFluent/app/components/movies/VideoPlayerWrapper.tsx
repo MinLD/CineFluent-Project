@@ -202,10 +202,40 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   // Handle subtitle click
   const handleSubtitleClick = useCallback(
     (time: number) => {
+      // 1. Force close modal & clear timeouts (Safe to call unconditionally)
+      setShadowingSubtitle(null);
+      if (replayTimeoutRef.current) clearTimeout(replayTimeoutRef.current);
+
       handleSeek(time);
       if (playerRef.current?.playVideo) {
         playerRef.current.playVideo();
       }
+    },
+    [handleSeek],
+  );
+
+  const handleShowShadowingWhenClickSub = useCallback(
+    (time: number, subtitle: I_Subtitle) => {
+      // 1. Force close any previous modal & clear timeouts
+      setShadowingSubtitle(null);
+      if (replayTimeoutRef.current) clearTimeout(replayTimeoutRef.current);
+
+      // 2. Seek & Play first (Don't set shadowingSubtitle yet)
+      const durationMs = (subtitle.end_time - subtitle.start_time) * 1000;
+
+      handleSeek(time);
+      if (playerRef.current?.playVideo) {
+        playerRef.current.playVideo();
+      }
+
+      // 3. Timeout to Pause & THEN Show Modal
+      replayTimeoutRef.current = setTimeout(() => {
+        if (playerRef.current?.pauseVideo) {
+          playerRef.current.pauseVideo();
+        }
+        // Shows the modal NOW, after playback is done
+        setShadowingSubtitle(subtitle);
+      }, durationMs + 250);
     },
     [handleSeek],
   );
@@ -424,6 +454,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
             currentTime={currentTime}
             onSubtitleClick={handleSubtitleClick}
             onPracticeClick={handlePracticeClick}
+            handleShowShadowingWhenClickSub={handleShowShadowingWhenClickSub}
           />
         </div>
       )}

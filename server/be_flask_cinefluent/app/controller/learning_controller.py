@@ -14,7 +14,7 @@ def test_audio_analysis():
         audio_base64 = data.get('audio_base64')
         
         if not original_text or not audio_base64:
-            return error_response(400, 'Missing original_text or audio_base64')
+            return error_response(message='Missing original_text or audio_base64', code=400)
         
         # Gọi AI phân tích audio
         result = evaluate_audio_shadowing_service(original_text, audio_base64)
@@ -22,9 +22,9 @@ def test_audio_analysis():
         if result.get('success'):
             return success_response(data=result['data'], message='Audio analysis completed', code=200)
         else:
-            return error_response(500, f"AI Error: {result.get('error')}")
+            return error_response(message=f"AI Error: {result.get('error')}", code=500)
             
     except Exception as e:
-        return error_response(500, f"Server Error: {str(e)}")
+        return error_response(message=f"Server Error: {str(e)}", code=500)
 
 

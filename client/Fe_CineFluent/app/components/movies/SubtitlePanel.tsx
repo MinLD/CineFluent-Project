@@ -16,6 +16,7 @@ interface SubtitlePanelProps {
   currentTime?: number;
   onSubtitleClick?: (time: number) => void;
   onPracticeClick?: (subtitle: Subtitle) => void;
+  handleShowShadowingWhenClickSub?: (time: number, subtitle: Subtitle) => void;
 }
 
 export function SubtitlePanel({
@@ -23,6 +24,7 @@ export function SubtitlePanel({
   currentTime = 0,
   onSubtitleClick,
   onPracticeClick,
+  handleShowShadowingWhenClickSub,
 }: SubtitlePanelProps) {
   const adjustedTime = currentTime;
 
@@ -122,8 +124,11 @@ export function SubtitlePanel({
               {/* Practice Button (Top Right) */}
               <button
                 onClick={(e) => {
-                  e.stopPropagation(); // Ngăn click vào subtitle (seek video)
-                  onPracticeClick?.(subtitle);
+                  e.stopPropagation();
+                  handleShowShadowingWhenClickSub?.(
+                    subtitle.start_time,
+                    subtitle,
+                  );
                 }}
                 className={`absolute top-2 right-2 p-1.5 rounded-full transition-all opacity-0 group-hover:opacity-100 ${
                   index === currentIndex

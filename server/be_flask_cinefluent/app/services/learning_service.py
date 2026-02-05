@@ -15,7 +15,7 @@ def evaluate_audio_shadowing_service(original_text: str, audio_base64: str):
                 "items": {"type": "STRING"},
                 "description": "List of words from the TARGET TEXT that were mispronounced or omitted"
             },
-            "feedback": {"type": "STRING", "description": "Đóng vai giáo viên bản xứ: Chỉ ra 1 lỗi sai quan trọng nhất (âm cuối, trọng âm, nối âm,IPA) và hướng dẫn cách sửa cụ thể bằng tiếng Việt. Giọng văn tự nhiên, khích lệ. Dưới 30 từ."}
+            "feedback": {"type": "STRING", "description": "Đóng vai giáo viên bản xứ khó tính: Chỉ ra vài lỗi sai quan trọng nhất (âm cuối, trọng âm, nối âm,IPA) và hướng dẫn cách sửa cụ thể bằng tiếng Việt. Giọng văn tự nhiên. Dưới 40 từ."}
         },
         "required": ["transcript", "score", "wrong_words"]
     }
@@ -53,6 +53,11 @@ def evaluate_audio_shadowing_service(original_text: str, audio_base64: str):
         return {"success": True, "data": result}
 
     except Exception as e:
-        print(f"Lỗi AI Audio Analysis: {e}")
-        return {"success": False, "error": str(e)}
+        error_str = str(e)
+        print(f"Lỗi AI Audio Analysis: {error_str}")
+        
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+             return {"success": False, "error": "Hệ thống đang quá tải (Rate Limit). Vui lòng thử lại sau 30 giây."}
+        
+        return {"success": False, "error": error_str}
 
