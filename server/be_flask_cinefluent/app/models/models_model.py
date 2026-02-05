@@ -35,7 +35,7 @@ class User(db.Model):
     roles = db.relationship('Role', secondary='role_user', back_populates='users')
     # 1-1 relationship: uselist=False biến nó thành object đơn thay vì list
     profile = db.relationship('UserProfile', uselist=False, back_populates='user', cascade='all, delete-orphan')
-
+    learning_progresses = db.relationship('UserLearningProgress', back_populates='user', cascade='all, delete-orphan')
 
 
     def set_password(self, password):
@@ -84,12 +84,6 @@ class Category(db.Model):
 
     videos = db.relationship('Video', back_populates= 'category', lazy='dynamic')
 
-
-
-
-
-
-
 class Video(db.Model):
     __tablename__ = 'videos'
     id = db.Column(db.Integer, primary_key=True)
@@ -123,5 +117,23 @@ class Subtitle(db.Model):
     end_time = db.Column(db.Float, nullable=False)  # Thời điểm kết thúc câu thoại [cite: 73]
     content_en = db.Column(db.Text, nullable=False)  # Phụ đề gốc [cite: 74]
     content_vi = db.Column(db.Text)  # Phụ đề dịch [cite: 75]
-
+    learning_progresses = db.relationship(
+        'UserLearningProgress',
+        back_populates='subtitle',
+        cascade='all, delete-orphan'
+    )
     video = db.relationship('Video', back_populates='subtitles')
+
+# moduels 3
+class UserLearningProgress(db.Model):
+    __tablename__ = 'user_learning_progress'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    subtitle_id = db.Column(db.Integer, db.ForeignKey('subtitles.id'), nullable=False)
+
+    user_attempt_text = db.Column(db.Text)
+    score = db.Column(db.Integer)
+    feedback = db.Column(db.JSON)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    subtitle = db.relationship('Subtitle', back_populates='learning_progresses')
+    user = db.relationship('User', back_populates='learning_progresses')

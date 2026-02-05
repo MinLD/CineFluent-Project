@@ -7,12 +7,10 @@ import {
   TabsSkeleton,
 } from "@/app/lib/skeletons/ProfileSkeleton";
 import { useAuth } from "@/app/lib/hooks/useAuth";
-import { User, Zap, Crown, Shield } from "lucide-react";
+import { User, Crown, Shield } from "lucide-react";
 import { UserInformation } from "@/app/components/profile/UserInformation";
-import { SkillInformation } from "@/app/components/profile/SkillInformation";
 import MembershipTab from "@/app/components/profile/MembershipTab";
 import SecurityTab from "@/app/components/profile/SecurityTab";
-import { I_skills_user, I_category } from "@/app/lib/types/categories";
 
 export default function ProfilePage() {
   const { profile_user, isLoading } = useAuth();

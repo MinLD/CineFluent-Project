@@ -6,6 +6,7 @@ class CategorySchema(Schema):
     avatar_url = fields.Str()
 
 class SubtitleSchema(Schema):
+    id = fields.Int()
     start_time = fields.Float()
     end_time = fields.Float()
     content_en = fields.Str()
@@ -29,5 +30,8 @@ class VideoDetailSchema(Schema):
         title = fields.Str()
         thumbnail_url = fields.Str()
         source_url = fields.Str()
+        level = fields.Str()
+        view_count = fields.Int()
+        category = fields.Nested(CategorySchema)
         # Lồng danh sách subtitles vào đây
         subtitles = fields.List(fields.Nested(SubtitleSchema))

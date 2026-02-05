@@ -90,7 +90,7 @@ export default function SidebarWithAuth({ onClose }: { onClose: () => void }) {
               </h4>
               <div className="mt-1 flex items-center gap-1 text-sm font-semibold text-green-600">
                 <CreditCard className="h-3.5 w-3.5" />
-                <span>{profile_user?.wallet_balance}</span>
+                <span>{profile_user?.profile.streak_days}</span>
               </div>
             </div>
           </div>

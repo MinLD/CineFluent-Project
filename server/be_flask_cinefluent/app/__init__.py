@@ -42,6 +42,9 @@ def create_app(config_name='default'):
     from .controller.video_controller import video_bp
     app.register_blueprint(video_bp, url_prefix='/api/videos')
 
+    from .controller.learning_controller import learning_bp
+    app.register_blueprint(learning_bp, url_prefix='/api/learning')
+
 
 
 

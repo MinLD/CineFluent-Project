@@ -1,10 +1,10 @@
 from flask import Blueprint, request
 from ..utils.response import success_response, error_response
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from ..services.video_service import import_youtube_video
+from ..services.video_service import import_youtube_video, get_all_videos, delete_video_youtube
 from ..schemas.video_schema import VideoSchema, VideoDetailSchema, SubtitleSchema
 from ..models.models_model import Video, Subtitle
-
+from ..extensions import db
 video_bp = Blueprint('api/videos', __name__)
 
 
@@ -26,19 +26,35 @@ def controller_import_video():
     except Exception as e:
         return error_response(str(e), 400)
 
+@video_bp.route('/<int:video_id>', methods=['DELETE'])
+def controller_delete_video(video_id):
+    delete_video_youtube(video_id)
+    return success_response(message='video deleted successfully')
+
+
+@video_bp.route('/', methods=['GET'])
+def get_videos():
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 12, type=int)
+    cat_id = request.args.get('category_id', type=int)
+
+    result = get_all_videos(page, per_page, cat_id)
+    return success_response(data=result)
 
 @video_bp.route('/<int:video_id>', methods=['GET'])
-@jwt_required()
-def get_video_detail(video_id):
+def get_detail(video_id):
     video = Video.query.get(video_id)
     if not video:
-        return error_response("Không tìm thấy video", 404)
+        return error_response("Không tìm thấy phim", 404)
 
-    # Lấy list sub đã sắp xếp
-    ordered_subs = video.subtitles.order_by(Subtitle.start_time.asc()).all()
+    # Sắp xếp phụ đề theo thời gian để người dùng học đúng thứ tự
+    ordered_subs = Subtitle.query.filter_by(video_id=video_id).order_by(Subtitle.start_time.asc()).all()
 
-    # Dump data: Truyền video nhưng ghi đè subtitles bằng list đã sort
-    result = VideoDetailSchema().dump(video)
-    result['subtitles'] = SubtitleSchema(many=True).dump(ordered_subs)
+    # Tăng lượt xem (tùy chọn)
+    video.view_count += 1
+    db.session.commit()
 
-    return success_response(data=result)
+    res_data = VideoDetailSchema().dump(video)
+    res_data['subtitles'] = SubtitleSchema(many=True).dump(ordered_subs)
+
+    return success_response(data=res_data)
