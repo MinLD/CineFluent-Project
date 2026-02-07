@@ -21,6 +21,7 @@ class VideoSchema(Schema):
     view_count = fields.Int()
     category = fields.Nested(CategorySchema)
     subtitles = fields.List(fields.Nested(SubtitleSchema))
+    slug = fields.Str()
 
 
 
@@ -33,5 +34,7 @@ class VideoDetailSchema(Schema):
         level = fields.Str()
         view_count = fields.Int()
         category = fields.Nested(CategorySchema)
+        slug = fields.Str()
+
         # Lồng danh sách subtitles vào đây
         subtitles = fields.List(fields.Nested(SubtitleSchema))

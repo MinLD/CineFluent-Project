@@ -91,7 +91,7 @@ class Video(db.Model):
     source_type = db.Column(db.Enum('youtube', 'drive', 'local'), default='youtube')
     source_url = db.Column(db.String(500), nullable=False)
     youtube_id = db.Column(db.String(50), unique=True, nullable=True)  # Chỉ dùng cho YT [cite: 61, 92]
-
+    slug = db.Column(db.String(100), nullable=True, unique=True)
     title = db.Column(db.String(255), nullable=False)
     thumbnail_url = db.Column(db.String(500))
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'))  # Link sang bảng Category

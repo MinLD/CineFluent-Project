@@ -41,14 +41,14 @@ def get_videos():
     result = get_all_videos(page, per_page, cat_id)
     return success_response(data=result)
 
-@video_bp.route('/<int:video_id>', methods=['GET'])
-def get_detail(video_id):
-    video = Video.query.get(video_id)
+@video_bp.route('/<string:slug>', methods=['GET'])
+def get_detail(slug: str):
+    video = Video.query.filter_by(slug=slug).first()
     if not video:
         return error_response("Không tìm thấy phim", 404)
 
     # Sắp xếp phụ đề theo thời gian để người dùng học đúng thứ tự
-    ordered_subs = Subtitle.query.filter_by(video_id=video_id).order_by(Subtitle.start_time.asc()).all()
+    ordered_subs = Subtitle.query.filter_by(video_id=video.id).order_by(Subtitle.start_time.asc()).all()
 
     # Tăng lượt xem (tùy chọn)
     video.view_count += 1

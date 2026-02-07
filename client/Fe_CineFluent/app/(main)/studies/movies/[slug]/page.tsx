@@ -1,15 +1,21 @@
 import { VideoPlayerWrapper } from "@/app/components/movies/VideoPlayerWrapper";
 import { VideoInfo } from "@/app/components/movies/VideoInfo";
-import { SSR_Video_Id } from "@/app/lib/data/video";
+import { SSR_Video_Slug } from "@/app/lib/data/video";
+
+import { notFound } from "next/navigation";
 
 export default async function VideoDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) {
   const resolvedParams = await params;
-  const id = resolvedParams.id;
-  const video = await SSR_Video_Id(id);
+  const slug = resolvedParams.slug;
+  const video = await SSR_Video_Slug(slug);
+
+  if (!video) {
+    return notFound();
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">

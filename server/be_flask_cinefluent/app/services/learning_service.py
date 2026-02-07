@@ -15,7 +15,7 @@ def evaluate_audio_shadowing_service(original_text: str, audio_base64: str):
                 "items": {"type": "STRING"},
                 "description": "List of words from the TARGET TEXT that were mispronounced or omitted"
             },
-            "feedback": {"type": "STRING", "description": "Đóng vai giáo viên bản xứ khó tính: Chỉ ra vài lỗi sai quan trọng nhất (âm cuối, trọng âm, nối âm,IPA) và hướng dẫn cách sửa cụ thể bằng tiếng Việt. Giọng văn tự nhiên. Dưới 40 từ."}
+            "feedback": {"type": "STRING", "description": "Đóng vai giáo viên bản xứ khó tính: Chỉ ra vài lỗi sai quan trọng nhất (âm cuối, trọng âm, nối âm,IPA) và hướng dẫn cách sửa cụ thể bằng tiếng Việt. Giọng văn tự nhiên. Dưới 20 từ."}
         },
         "required": ["transcript", "score", "wrong_words"]
     }
@@ -109,6 +109,53 @@ def get_quick_dictionary_service(word: str, context_sentence: str):
         if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
             return {"success": False, "error": "Hệ thống đang quá tải. Vui lòng thử lại sau."}
         return {"success": False, "error": error_str}
+
+
+def suggest_video_category(title: str, description: str):
+
+    category_schema = {
+        "type": "OBJECT",
+        "properties": {
+            "category": {"type": "STRING"}
+        },
+        "required": ["category"]
+    }
+
+    # Cắt ngắn description nếu quá dài để tiết kiệm token
+    short_desc = description[:500] if description else ""
+
+    prompt = f"""
+    Title: "{title}"
+    Description: "{short_desc}"
+
+    Suggest ONE Vietnamese category name.
+
+    Rules:
+    - 1–3 words
+    - Generic category
+    - Capitalized
+    - No punctuation
+
+    Return JSON only.
+    """
+
+    try:
+        response = cinefluent_ai.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt],
+            config=types.GenerateContentConfig(
+                temperature=0.3,
+                response_mime_type="application/json",
+                response_schema=category_schema
+            )
+        )
+
+        result = json.loads(response.text)
+        return {"success": True, "data": result}
+
+    except Exception as e:
+        print(f"Lỗi AI Category Suggestion: {str(e)}")
+        return {"success": False, "error": str(e)}
 
 
 

@@ -11,6 +11,7 @@ interface VideoCardProps {
     thumbnail_url: string;
     source_type: "youtube" | "drive" | "local";
     level: string;
+    slug: string;
     view_count: number;
     category?: { name: string };
   };
@@ -35,7 +36,7 @@ export function VideoCard({ video }: VideoCardProps) {
     levelColors[video.level as keyof typeof levelColors] || "bg-gray-500";
 
   return (
-    <Link href={`/studies/movies/${video.id}`}>
+    <Link href={`/studies/movies/${video.slug}`}>
       <div className="flex-shrink-0 w-[280px] group relative overflow-hidden rounded-lg bg-slate-800 border border-slate-700  transition-all duration-300 cursor-pointer">
         {/* Thumbnail */}
         <div className="relative aspect-video overflow-hidden bg-slate-900">

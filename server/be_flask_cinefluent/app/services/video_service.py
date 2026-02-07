@@ -14,7 +14,8 @@ def fetch_youtube_metadata(url):
             'title': info.get('title'),
             'thumbnail': info.get('thumbnail'),
             'duration': info.get('duration'),
-            'youtube_id': info.get('id')
+            'youtube_id': info.get('id'),
+            'description': info.get('description')
         }
 def delete_video_youtube(id):
     video = Video.query.get(id)
@@ -22,6 +23,16 @@ def delete_video_youtube(id):
         raise ValueError('Video id {} not found'.format(id))
     db.session.delete(video)
     db.session.commit()
+def create_unique_slug(model, base_title, max_length=100):
+    base_slug = slugify(base_title)[:max_length]
+    slug = base_slug
+    counter = 1
+    while model.query.filter_by(slug=slug).first():
+        suffix = f"-{counter}"
+        slug = f"{base_slug[:max_length - len(suffix)]}{suffix}"
+        counter += 1
+
+    return slug
 
 
 def import_youtube_video(url, level, user_id):
@@ -29,12 +40,7 @@ def import_youtube_video(url, level, user_id):
     yt_id = meta['youtube_id']
 
     # 1. Xử lý Category
-    category_name = meta.get('category', 'General')
-    category = Category.query.filter_by(name=category_name).first()
-    if not category:
-        category = Category(name=category_name, slug=slugify(category_name))
-        db.session.add(category)
-        db.session.flush()
+
 
     # 2. Kiểm tra Video tồn tại chưa
     video = Video.query.filter_by(youtube_id=yt_id).first()
@@ -69,10 +75,10 @@ def import_youtube_video(url, level, user_id):
 
         if os.path.exists(cookie_path):
             ydl_opts['cookiefile'] = cookie_path
-            print(f"✅ Using cookies")
+            print(f"Using cookies")
 
         # Download subtitles và lấy metadata
-        print(f"🔍 Downloading subtitles for: {url}")
+        print(f"Downloading subtitles for: {url}")
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             # Extract info để lấy metadata
             info = ydl.extract_info(url, download=False)
@@ -82,30 +88,30 @@ def import_youtube_video(url, level, user_id):
             automatic_captions = info.get('automatic_captions', {})
 
             # Log thông tin subtitle
-            print("\n📊 Subtitle Information:")
+            print("\nSubtitle Information:")
             print(f"   Manual subtitles available: {list(subtitles.keys())}")
             print(f"   Auto-generated captions available: {list(automatic_captions.keys())}")
 
             # Kiểm tra tiếng Anh
             if 'en' in subtitles:
-                print(f"   ✅ English: MANUAL (human-created)")
+                print(f"   English: MANUAL (human-created)")
                 en_type = "manual"
             elif 'en' in automatic_captions:
-                print(f"   🤖 English: AUTO-GENERATED")
+                print(f"   English: AUTO-GENERATED")
                 en_type = "auto"
             else:
-                print(f"   ❌ English: NOT FOUND")
+                print(f"   English: NOT FOUND")
                 en_type = "none"
 
             # Kiểm tra tiếng Việt
             if 'vi' in subtitles:
-                print(f"   ✅ Vietnamese: MANUAL (human-created)")
+                print(f"   Vietnamese: MANUAL (human-created)")
                 vi_type = "manual"
             elif 'vi' in automatic_captions:
-                print(f"   🤖 Vietnamese: AUTO-GENERATED")
+                print(f"   Vietnamese: AUTO-GENERATED")
                 vi_type = "auto"
             else:
-                print(f"   ❌ Vietnamese: NOT FOUND (will use auto-translate)")
+                print(f"   Vietnamese: NOT FOUND (will use auto-translate)")
                 vi_type = "translated"
 
             print()  # Empty line for readability
@@ -151,19 +157,19 @@ def import_youtube_video(url, level, user_id):
             if vi_files:
                 vi_file = vi_files[0]
 
-        print(f"📁 Temp directory: {temp_dir}")
-        print(f"📄 English file: {en_file} (exists: {os.path.exists(en_file)})")
-        print(f"📄 Vietnamese file: {vi_file} (exists: {os.path.exists(vi_file)})")
+        print(f"Temp directory: {temp_dir}")
+        print(f"English file: {en_file} (exists: {os.path.exists(en_file)})")
+        print(f"Vietnamese file: {vi_file} (exists: {os.path.exists(vi_file)})")
 
         # Parse English subtitles
         transcript = parse_json3_file(en_file)
         if not transcript:
             raise ValueError("Không tìm thấy phụ đề tiếng Anh")
 
-        print(f"✅ Got {len(transcript)} English entries ({en_type})")
+        print(f"Got {len(transcript)} English entries ({en_type})")
 
         # Dịch subtitle bằng Google Translate API (BATCH MODE - Tối ưu động)
-        print("🌐 Translating subtitles using Google Translate (Dynamic Batch mode)...")
+        print("Translating subtitles using Google Translate (Dynamic Batch mode)...")
         
         from deep_translator import GoogleTranslator
         import time
@@ -283,7 +289,35 @@ def import_youtube_video(url, level, user_id):
         import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
 
-        # 3. Khởi tạo Object Video
+        from .learning_service import suggest_video_category
+
+        # 3. Xử lý Category (AI Suggestion) - moved here to save tokens
+        print(f"Asking AI to categorize: {meta['title']}...")
+        ai_result = suggest_video_category(meta['title'], meta.get('description', ''))
+        
+        if ai_result.get('success'):
+            category_name = ai_result['data'].get('category', 'General')
+            print(f"   AI Suggested: {category_name}")
+        else:
+            print(f"   AI Error, fallback to General. Error: {ai_result.get('error')}")
+            category_name = 'General'
+
+        # Tạo Slug từ tên AI gợi ý
+        category_slug = slugify(category_name)
+        
+        # Tìm trong DB bằng SLUG
+        category = Category.query.filter_by(slug=category_slug).first()
+        
+        if not category:
+            print(f"   Creating new category: {category_name} ({category_slug})")
+            category = Category(name=category_name, slug=category_slug)
+            db.session.add(category)
+            db.session.flush()
+        else:
+            print(f"   Found existing category: {category.name}")
+
+
+        # 4. Khởi tạo Object Video
         video = Video(
             source_type='youtube',
             source_url=url,
@@ -292,6 +326,7 @@ def import_youtube_video(url, level, user_id):
             thumbnail_url=meta['thumbnail'],
             category_id=category.id,
             level=level,
+            slug = create_unique_slug(Video, meta['title']),
             added_by_user_id=user_id
         )
         db.session.add(video)

@@ -132,8 +132,9 @@ const AudioPage = ({
         );
 
         const data = await response.json();
+        console.log(data);
 
-        if (data.success) {
+        if (data.code === 200) {
           // Backend trả về success: true
           setResult(data.data);
         } else {
