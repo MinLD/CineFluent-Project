@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { Clock, Plus, Minus, Mic } from "lucide-react";
+import { Clock, Plus, Minus, Mic, Keyboard } from "lucide-react";
+import { tokenizeText } from "@/app/utils/tokenizeText";
 
 interface Subtitle {
   id: number;
@@ -17,6 +18,7 @@ interface SubtitlePanelProps {
   onSubtitleClick?: (time: number) => void;
   onPracticeClick?: (subtitle: Subtitle) => void;
   handleShowShadowingWhenClickSub?: (time: number, subtitle: Subtitle) => void;
+  onWordClick?: (word: string, context: string) => void;
 }
 
 export function SubtitlePanel({
@@ -25,6 +27,7 @@ export function SubtitlePanel({
   onSubtitleClick,
   onPracticeClick,
   handleShowShadowingWhenClickSub,
+  onWordClick,
 }: SubtitlePanelProps) {
   const adjustedTime = currentTime;
 
@@ -117,33 +120,73 @@ export function SubtitlePanel({
               onClick={() => onSubtitleClick?.(subtitle.start_time)}
               className={`p-3 rounded-lg cursor-pointer transition-all duration-200 relative group ${
                 index === currentIndex
-                  ? "bg-blue-600 text-white shadow-lg scale-105 ring-2 ring-blue-400"
+                  ? "bg-blue-600 text-white shadow-lg"
                   : "bg-slate-800 hover:bg-slate-700 text-slate-300 hover:scale-102"
               }`}
             >
               {/* Practice Button (Top Right) */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleShowShadowingWhenClickSub?.(
-                    subtitle.start_time,
-                    subtitle,
-                  );
-                }}
-                className={`absolute top-2 right-2 p-1.5 rounded-full transition-all opacity-0 group-hover:opacity-100 ${
-                  index === currentIndex
-                    ? "bg-white/20 hover:bg-white/30 text-white"
-                    : "bg-slate-600 hover:bg-blue-500 text-slate-200 hover:text-white"
-                }`}
-                title="Luyện nói câu này"
-              >
-                <div className="bg-red-500 rounded-full p-1">
-                  <Mic className="w-3 h-3 text-white" />
-                </div>
-              </button>
+              <div className="flex flex-col gap-2  absolute top-2 right-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleShowShadowingWhenClickSub?.(
+                      subtitle.start_time,
+                      subtitle,
+                    );
+                  }}
+                  className={`hover:cursor-pointer p-1.5 rounded-full transition-all opacity-0 group-hover:opacity-100 ${
+                    index === currentIndex
+                      ? "bg-white/20 hover:bg-white/30 text-white"
+                      : "bg-slate-600 hover:bg-blue-500 text-slate-200 hover:text-white"
+                  }`}
+                  title="Luyện nói câu này"
+                >
+                  <div className="bg-white-500 rounded-full p-1">
+                    <Mic className="w-3 h-3 text-white" />
+                  </div>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleShowShadowingWhenClickSub?.(
+                      subtitle.start_time,
+                      subtitle,
+                    );
+                  }}
+                  className={`hover:cursor-pointer p-1.5 rounded-full transition-all opacity-0 group-hover:opacity-100 ${
+                    index === currentIndex
+                      ? "bg-white/20 hover:bg-white/30 text-white"
+                      : "bg-slate-600 hover:bg-blue-500 text-slate-200 hover:text-white"
+                  }`}
+                  title="Luyện viết câu này"
+                >
+                  <div className="bg-white-500 rounded-full p-1">
+                    <Keyboard className="w-3 h-3 text-white" />
+                  </div>
+                </button>
+              </div>
 
               {/* English */}
-              <p className="font-medium mb-1 pr-8">{subtitle.content_en}</p>
+              <p className="font-medium mb-1 pr-8 text-white/90">
+                {tokenizeText(subtitle.content_en)?.map((token, i) => {
+                  if (token.isWord) {
+                    return (
+                      <span
+                        key={i}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onWordClick?.(token.text, subtitle.content_en);
+                        }}
+                        className="inline-block cursor-pointer transition-colors duration-200 border-b-2 border-transparent hover:border-yellow-400 hover:text-yellow-400 pb-[1px]"
+                      >
+                        {token.text}
+                      </span>
+                    );
+                  } else {
+                    return <span key={i}>{token.text}</span>;
+                  }
+                })}
+              </p>
 
               {/* Vietnamese */}
               {subtitle.content_vi && (

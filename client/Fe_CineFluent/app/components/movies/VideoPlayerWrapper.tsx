@@ -6,6 +6,7 @@ import { SubtitlePanel } from "./SubtitlePanel";
 import { SubtitleOverlay } from "./SubtitleOverlay";
 import { CustomVideoControls } from "./CustomVideoControls";
 import AudioPage from "./AudioPage"; // Import AudioPage
+import { QuickDictionaryModal } from "./QuickDictionaryModal";
 import { I_Subtitle } from "@/app/lib/types/video";
 import { ArrowLeft, Flag } from "lucide-react";
 import Link from "next/link";
@@ -40,6 +41,39 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   const [shadowingSubtitle, setShadowingSubtitle] = useState<I_Subtitle | null>(
     null,
   );
+
+  // Settings State: Quality & Subtitle Appearance
+  const [qualities, setQualities] = useState<string[]>([]);
+  const [currentQuality, setCurrentQuality] = useState<string>("auto");
+  const [subtitleSettings, setSubtitleSettings] = useState({
+    fontSize: "medium", // small, medium, large
+    bgOpacity: 0.9, // 0 to 1
+  });
+
+  // Handle Quality Change
+  const handleQualityChange = useCallback((newQuality: string) => {
+    if (playerRef.current?.setPlaybackQuality) {
+      playerRef.current.setPlaybackQuality(newQuality);
+      setCurrentQuality(newQuality);
+    }
+  }, []);
+
+  // Update qualities periodically (YouTube API dynamic loading)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (playerRef.current?.getAvailableQualityLevels) {
+        const levels = playerRef.current.getAvailableQualityLevels();
+        if (
+          levels &&
+          levels.length > 0 &&
+          JSON.stringify(levels) !== JSON.stringify(qualities)
+        ) {
+          setQualities(levels);
+        }
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [qualities]);
 
   // Refs
   const playerRef = useRef<any>(null);
@@ -188,7 +222,6 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     setPlaybackRate(rate);
   }, []);
 
-  // Handle Fullscreen
   const handleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
 
@@ -197,6 +230,27 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     } else {
       document.exitFullscreen();
     }
+  }, []);
+
+  // --- DICTIONARY HANDLERS ---
+  const [selectedWord, setSelectedWord] = useState<{
+    word: string;
+    context: string;
+  } | null>(null);
+
+  const handleWordClick = useCallback((word: string, context: string) => {
+    if (playerRef.current?.pauseVideo) {
+      playerRef.current.pauseVideo();
+    }
+    // Clean word: remove punctuation
+    const cleanWord = word.replace(/[.,!?;:"()]/g, "");
+    if (cleanWord.trim().length > 0) {
+      setSelectedWord({ word: cleanWord, context });
+    }
+  }, []);
+
+  const closeDictionary = useCallback(() => {
+    setSelectedWord(null);
   }, []);
 
   // Handle subtitle click
@@ -405,6 +459,8 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
             subtitles={video.subtitles || []}
             currentTime={currentTime}
             subtitleMode={subtitleMode}
+            onWordClick={handleWordClick}
+            settings={subtitleSettings}
           />
 
           {/* --- SHADOWING OVERLAY --- */}
@@ -415,6 +471,17 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
                 onClose={handleAudioClose}
                 onNext={handleAudioNext}
                 onReplayOriginal={handleReplayOriginal}
+              />
+            </div>
+          )}
+
+          {/* --- DICTIONARY MODAL OVERLAY --- */}
+          {selectedWord && (
+            <div className="fixed inset-0 z-[48] pointer-events-auto flex items-center justify-center">
+              <QuickDictionaryModal
+                word={selectedWord.word}
+                context={selectedWord.context}
+                onClose={closeDictionary}
               />
             </div>
           )}
@@ -441,6 +508,11 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
               onSubtitleModeChange={setSubtitleMode}
               showSubtitlePanel={showSubtitlePanel}
               onShowSubtitlePanelChange={setShowSubtitlePanel}
+              qualities={qualities}
+              currentQuality={currentQuality}
+              onQualityChange={handleQualityChange}
+              subtitleSettings={subtitleSettings}
+              onSubtitleSettingsChange={setSubtitleSettings}
             />
           </div>
         </div>

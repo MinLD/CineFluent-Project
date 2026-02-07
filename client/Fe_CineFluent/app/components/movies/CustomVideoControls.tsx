@@ -14,6 +14,9 @@ import {
   Eye,
   Mic,
   RotateCcw,
+  ChevronRight,
+  Check,
+  ChevronLeft,
 } from "lucide-react";
 
 interface CustomVideoControlsProps {
@@ -32,6 +35,14 @@ interface CustomVideoControlsProps {
   onSubtitleModeChange: (mode: "both" | "en" | "off") => void;
   showSubtitlePanel: boolean;
   onShowSubtitlePanelChange: (show: boolean) => void;
+  qualities?: string[];
+  currentQuality?: string;
+  onQualityChange?: (quality: string) => void;
+  subtitleSettings?: { fontSize: string; bgOpacity: number };
+  onSubtitleSettingsChange?: (settings: {
+    fontSize: string;
+    bgOpacity: number;
+  }) => void;
 }
 
 export function CustomVideoControls({
@@ -50,11 +61,26 @@ export function CustomVideoControls({
   onSubtitleModeChange,
   showSubtitlePanel,
   onShowSubtitlePanelChange,
+  qualities = [],
+  currentQuality = "auto",
+  onQualityChange,
+  subtitleSettings,
+  onSubtitleSettingsChange,
 }: CustomVideoControlsProps) {
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<
+    "main" | "quality" | "subtitle_appearance"
+  >("main");
   const [isDragging, setIsDragging] = useState(false);
+
+  // Reset menu to main when closing
+  useEffect(() => {
+    if (!showSettingsMenu) {
+      setActiveMenu("main");
+    }
+  }, [showSettingsMenu]);
 
   // Settings states (local only for features not yet implemented)
   const [shadowingMode, setShadowingMode] = useState(false);
@@ -161,51 +187,56 @@ export function CustomVideoControls({
         {/* Right: Volume + Speed + Fullscreen */}
         <div className="flex items-center gap-2">
           {/* Volume */}
+          {/* Volume */}
+          {/* Volume */}
           <div
-            className="relative flex items-center"
-            onMouseEnter={() => setShowVolumeSlider(true)}
+            className="flex items-center relative"
             onMouseLeave={() => setShowVolumeSlider(false)}
           >
-            <button
-              onClick={() => onVolumeChange(volume > 0 ? 0 : 100)}
-              className="text-white hover:text-blue-400 transition-colors p-2 hover:bg-white/10 rounded-full"
-              aria-label={volume > 0 ? "Mute" : "Unmute"}
+            <div
+              onMouseEnter={() => {
+                setShowVolumeSlider(true);
+                setShowSpeedMenu(false);
+                setShowSettingsMenu(false);
+              }}
+              className="flex items-center bg-transparent hover:bg-black/60 rounded-full transition-all duration-300 border border-transparent hover:border-white/10 pr-0 hover:pr-3 group/vol"
             >
-              {volume > 0 ? (
-                <Volume2 className="w-5 h-5" />
-              ) : (
-                <VolumeX className="w-5 h-5" />
-              )}
-            </button>
+              <button
+                onClick={() => onVolumeChange(volume > 0 ? 0 : 100)}
+                className="text-white hover:text-blue-400 transition-colors p-2 rounded-full"
+                aria-label={volume > 0 ? "Mute" : "Unmute"}
+              >
+                {volume > 0 ? (
+                  <Volume2 className="w-5 h-5" />
+                ) : (
+                  <VolumeX className="w-5 h-5" />
+                )}
+              </button>
 
-            {/* Volume Slider */}
-            {showVolumeSlider && (
-              <div className="absolute bottom-full -mb-1 left-1/2 -translate-x-1/2 backdrop-blur-sm rounded-lg px-[1px] pt-4 pb-4 shadow-xl border border-white/10">
-                <div className="h-16 flex items-center justify-center">
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={volume}
-                    onChange={(e) => onVolumeChange(Number(e.target.value))}
-                    className="w-18 h-1 accent-blue-500 cursor-pointer"
-                    style={{
-                      transform: "rotate(-90deg)",
-                      transformOrigin: "center",
-                    }}
-                  />
-                </div>
-                <div className="text-white text-xs text-center mt-1">
+              <div className="w-0 overflow-hidden group-hover/vol:w-[140px] transition-all duration-300 ease-out flex items-center">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={volume}
+                  onChange={(e) => onVolumeChange(Number(e.target.value))}
+                  className="w-20 mx-3 h-1 accent-blue-500 cursor-pointer hover:h-1.5 transition-all"
+                />
+                <span className="text-white text-xs font-mono tabular-nums pr-3">
                   {Math.round(volume)}%
-                </div>
+                </span>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Playback Speed */}
           <div className="relative">
             <button
-              onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+              onClick={() => {
+                setShowSpeedMenu(!showSpeedMenu);
+                setShowSettingsMenu(false);
+                setShowVolumeSlider(false);
+              }}
               className="text-white hover:text-blue-400 transition-colors px-3 py-1.5 hover:bg-white/10 rounded-lg text-sm font-medium"
               aria-label="Playback speed"
             >
@@ -238,7 +269,11 @@ export function CustomVideoControls({
           {/* Settings */}
           <div className="relative">
             <button
-              onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+              onClick={() => {
+                setShowSettingsMenu(!showSettingsMenu);
+                setShowSpeedMenu(false);
+                setShowVolumeSlider(false);
+              }}
               className="text-white hover:text-blue-400 transition-colors p-2 hover:bg-white/10 rounded-full"
               aria-label="Settings"
             >
@@ -247,138 +282,133 @@ export function CustomVideoControls({
 
             {/* Settings Menu */}
             {showSettingsMenu && (
-              <div className="absolute bottom-full mb-2 right-0 bg-black/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/10 overflow-y-auto max-h-[400px] min-w-[280px] z-[5]">
-                {/* Subtitle Display Mode */}
-                <div className="border-b border-white/10">
-                  <div className="px-4 py-2 text-xs text-gray-400 font-semibold">
-                    Hiển thị phụ đề
-                  </div>
-                  <button
-                    onClick={() => onSubtitleModeChange("both")}
-                    className={`w-full px-4 py-2.5 text-sm text-left transition-colors flex items-center gap-3 ${
-                      subtitleMode === "both"
-                        ? "bg-yellow-600 text-white"
-                        : "text-white hover:bg-white/10"
-                    }`}
-                  >
-                    <Subtitles className="w-4 h-4" />
-                    <span>EN + VI</span>
-                  </button>
-                  <button
-                    onClick={() => onSubtitleModeChange("en")}
-                    className={`w-full px-4 py-2.5 text-sm text-left transition-colors flex items-center gap-3 ${
-                      subtitleMode === "en"
-                        ? "bg-yellow-600 text-white"
-                        : "text-white hover:bg-white/10"
-                    }`}
-                  >
-                    <Subtitles className="w-4 h-4" />
-                    <span>EN</span>
-                  </button>
-                  <button
-                    onClick={() => onSubtitleModeChange("off")}
-                    className={`w-full px-4 py-2.5 text-sm text-left transition-colors flex items-center gap-3 ${
-                      subtitleMode === "off"
-                        ? "bg-yellow-600 text-white"
-                        : "text-white hover:bg-white/10"
-                    }`}
-                  >
-                    <Subtitles className="w-4 h-4" />
-                    <span>OFF</span>
-                  </button>
-                </div>
-
-                {/* Subtitle Panel Toggle */}
-                <div className="border-b border-white/10">
-                  <button
-                    onClick={() =>
-                      onShowSubtitlePanelChange(!showSubtitlePanel)
-                    }
-                    className="w-full px-4 py-3 text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10"
-                  >
-                    <div className="flex items-center gap-3">
-                      <List className="w-4 h-4 text-white" />
-                      <span className="text-white">Danh sách phụ đề</span>
+              <div className="absolute bottom-full mb-2 right-0 bg-black/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/10 overflow-y-auto max-h-[400px] min-w-[300px] z-[5] animate-fade-in">
+                {/* --- MAIN MENU --- */}
+                {activeMenu === "main" && (
+                  <div className="py-2">
+                    {/* Subtitle Mode */}
+                    <div className="px-4 py-2 flex items-center justify-between border-b border-white/10 mb-2">
+                      <span className="text-sm font-medium text-white">
+                        Phụ đề
+                      </span>
+                      <div className="flex bg-white/10 rounded overflow-hidden">
+                        <button
+                          onClick={() => onSubtitleModeChange("both")}
+                          className={`px-3 py-1 text-xs ${
+                            subtitleMode === "both"
+                              ? "bg-blue-600 text-white"
+                              : "text-gray-300 hover:bg-white/10"
+                          }`}
+                        >
+                          EN+VI
+                        </button>
+                        <button
+                          onClick={() => onSubtitleModeChange("en")}
+                          className={`px-3 py-1 text-xs ${
+                            subtitleMode === "en"
+                              ? "bg-blue-600 text-white"
+                              : "text-gray-300 hover:bg-white/10"
+                          }`}
+                        >
+                          EN
+                        </button>
+                        <button
+                          onClick={() => onSubtitleModeChange("off")}
+                          className={`px-3 py-1 text-xs ${
+                            subtitleMode === "off"
+                              ? "bg-blue-600 text-white"
+                              : "text-gray-300 hover:bg-white/10"
+                          }`}
+                        >
+                          OFF
+                        </button>
+                      </div>
                     </div>
-                    <div
-                      className={`w-10 h-5 rounded-full transition-colors ${
-                        showSubtitlePanel ? "bg-blue-500" : "bg-gray-600"
-                      }`}
+
+                    {/* Quality */}
+                    <button
+                      onClick={() => setActiveMenu("quality")}
+                      className="w-full px-4 py-3 text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
                     >
-                      <div
-                        className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${
-                          showSubtitlePanel ? "ml-5" : "ml-0.5"
-                        }`}
-                      />
-                    </div>
-                  </button>
-                </div>
-
-                {/* Shadowing Mode */}
-                <div className="border-b border-white/10">
-                  <button
-                    onClick={() => handleOnShadowing()}
-                    className="w-full px-4 py-3 text-sm text-left transition-colors hover:bg-white/10"
-                  >
-                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Eye className="w-4 h-4 text-white" />
-                        <div>
-                          <div className="text-white font-medium">
-                            Bật chế độ Shadowing
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            Tự động dừng để luyện nói
-                          </div>
-                        </div>
+                        <Settings className="w-4 h-4" />
+                        <span>Chất lượng hình ảnh</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-gray-400">
+                        <span>{currentQuality || "Auto"}</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </div>
+                    </button>
+
+                    {/* Subtitle Panel Toggle */}
+                    <button
+                      onClick={() =>
+                        onShowSubtitlePanelChange(!showSubtitlePanel)
+                      }
+                      className="w-full px-4 py-3 text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
+                    >
+                      <div className="flex items-center gap-3">
+                        <List className="w-4 h-4" />
+                        <span>Danh sách phụ đề</span>
                       </div>
                       <div
-                        className={`w-10 h-5 rounded-full transition-colors ${
-                          shadowingMode ? "bg-blue-500" : "bg-gray-600"
+                        className={`w-10 h-5 rounded-full transition-colors relative ${
+                          showSubtitlePanel ? "bg-blue-500" : "bg-gray-600"
                         }`}
                       >
                         <div
-                          className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${
-                            shadowingMode ? "ml-5" : "ml-0.5"
+                          className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${
+                            showSubtitlePanel ? "left-[22px]" : "left-0.5"
                           }`}
                         />
                       </div>
-                    </div>
-                  </button>
-                </div>
+                    </button>
+                  </div>
+                )}
 
-                {/* Dictation Mode */}
-                <div>
-                  <button
-                    onClick={() => setDictationMode(!dictationMode)}
-                    className="w-full px-4 py-3 text-sm text-left transition-colors hover:bg-white/10"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Mic className="w-4 h-4 text-white" />
-                        <div>
-                          <div className="text-white font-medium">
-                            Bật chế độ Nghe chép
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            Tự động dừng để gõ lại câu thoại
-                          </div>
-                        </div>
-                      </div>
-                      <div
-                        className={`w-10 h-5 rounded-full transition-colors ${
-                          dictationMode ? "bg-blue-500" : "bg-gray-600"
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${
-                            dictationMode ? "ml-5" : "ml-0.5"
-                          }`}
-                        />
-                      </div>
-                    </div>
-                  </button>
-                </div>
+                {/* --- QUALITY MENU --- */}
+                {activeMenu === "quality" && (
+                  <div className="py-2">
+                    <button
+                      onClick={() => setActiveMenu("main")}
+                      className="w-full px-4 py-2 text-sm text-left text-gray-300 hover:text-white hover:bg-white/10 flex items-center gap-2 border-b border-white/10 mb-1"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      quay lại
+                    </button>
+                    {(qualities || [])
+                      .filter((q) => q !== "small" && q !== "tiny")
+                      .map((q) => (
+                        <button
+                          key={q}
+                          onClick={() => {
+                            onQualityChange?.(q);
+                            setShowSettingsMenu(false);
+                          }}
+                          className="w-full px-4 py-2.5 text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
+                        >
+                          <span>
+                            {q === "auto"
+                              ? "Tự động"
+                              : q === "highres"
+                                ? "4K/Original"
+                                : q === "hd1080"
+                                  ? "1080p"
+                                  : q === "hd720"
+                                    ? "720p"
+                                    : q === "large"
+                                      ? "480p"
+                                      : q === "medium"
+                                        ? "360p"
+                                        : q}
+                          </span>
+                          {currentQuality === q && (
+                            <Check className="w-4 h-4 text-blue-500" />
+                          )}
+                        </button>
+                      ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

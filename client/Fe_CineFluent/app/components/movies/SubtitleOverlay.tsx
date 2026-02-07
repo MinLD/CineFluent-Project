@@ -1,5 +1,6 @@
 "use client";
 
+import { tokenizeText } from "@/app/utils/tokenizeText";
 import { useMemo } from "react";
 
 interface Subtitle {
@@ -10,16 +11,25 @@ interface Subtitle {
   content_vi: string | null;
 }
 
+interface SubtitleSettings {
+  fontSize: string;
+  bgOpacity: number;
+}
+
 interface SubtitleOverlayProps {
   subtitles: Subtitle[];
   currentTime: number;
   subtitleMode: "both" | "en" | "off";
+  onWordClick: (word: string, context: string) => void;
+  settings?: SubtitleSettings;
 }
 
 export function SubtitleOverlay({
   subtitles,
   currentTime,
   subtitleMode,
+  onWordClick,
+  settings = { fontSize: "medium", bgOpacity: 0.9 },
 }: SubtitleOverlayProps) {
   // Tìm subtitle hiện tại bằng Binary Search - O(log n)
   const currentSubtitle = useMemo(() => {
@@ -54,15 +64,53 @@ export function SubtitleOverlay({
     return null;
   }, [subtitles, currentTime]);
 
+  const tokens_sub = useMemo(() => {
+    if (!currentSubtitle) return [];
+    return tokenizeText(currentSubtitle.content_en);
+  }, [currentSubtitle?.id]);
+
   // Không hiển thị gì nếu không có subtitle hoặc mode là OFF
   if (!currentSubtitle || subtitleMode === "off") return null;
 
+  // Font size classes
+  const fontSizeClass = {
+    small: "text-base md:text-lg",
+    medium: "text-lg md:text-xl",
+    large: "text-xl md:text-2xl",
+  }[settings.fontSize];
+
   return (
-    <div className="absolute bottom-20 left-0 right-0 flex justify-center px-4 pointer-events-none z-[5]">
-      <div className="bg-black/90 backdrop-blur-sm rounded-lg px-6 py-3 max-w-[85%] shadow-2xl border border-white/10">
+    <div className="absolute bottom-20 left-0 right-0 flex justify-center px-4 pointer-events-none z-[10]">
+      <div
+        className="backdrop-blur-sm rounded-lg px-6 py-3 max-w-[85%] shadow-2xl border border-white/10 pointer-events-auto transition-all hover:bg-black/95"
+        style={{ backgroundColor: `rgba(0, 0, 0, ${settings.bgOpacity})` }}
+      >
         {/* Tiếng Anh - Dòng chính */}
-        <p className="text-white text-lg md:text-xl font-semibold text-center leading-relaxed text-shadow-lg">
-          {currentSubtitle.content_en}
+        <p
+          className={`text-white font-semibold text-center leading-relaxed text-shadow-lg ${fontSizeClass}`}
+        >
+          {tokens_sub.map((token, index) => {
+            if (token.isWord) {
+              return (
+                <span
+                  key={index}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onWordClick(token.text, currentSubtitle.content_en);
+                  }}
+                  className="inline-block cursor-pointer transition-colors duration-200 border-b-2 border-transparent hover:border-yellow-400 hover:text-yellow-400 pb-0.5 rounded px-0.5"
+                >
+                  {token.text}
+                </span>
+              );
+            } else {
+              return (
+                <span key={index} className="text-white">
+                  {token.text}
+                </span>
+              );
+            }
+          })}
         </p>
 
         {/* Tiếng Việt - Dòng phụ (chỉ hiển thị khi mode là "both") */}

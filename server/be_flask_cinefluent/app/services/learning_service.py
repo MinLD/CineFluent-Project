@@ -61,3 +61,54 @@ def evaluate_audio_shadowing_service(original_text: str, audio_base64: str):
         
         return {"success": False, "error": error_str}
 
+def get_quick_dictionary_service(word: str, context_sentence: str):
+    dictionary_schema = {
+        "type": "OBJECT",
+        "properties": {
+            "word": {"type": "STRING"},
+            "ipa": {"type": "STRING"},
+            "pos": {"type": "STRING", "description": "Part of speech"},
+            "definition_vi": {"type": "STRING"},
+            "example_en": {"type": "STRING"},
+            "example_vi": {"type": "STRING"}
+        },
+        "required": ["word", "ipa", "pos", "definition_vi", "example_en", "example_vi"]
+    }
+
+    prompt = f"""
+    Word: "{word}"
+    Sentence: "{context_sentence}"
+
+    Rules:
+    - Meaning must match the sentence
+    - One meaning only
+    - "word" must be base form
+    - definition_vi: ONE short Vietnamese sentence (max 20 words)
+
+    Return JSON with:
+    word, ipa, pos, definition_vi, example_en, example_vi
+    """
+
+    try:
+        response = cinefluent_ai.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt],
+            config=types.GenerateContentConfig(
+                temperature=0.3,
+                response_mime_type="application/json",
+                response_schema=dictionary_schema
+            )
+        )
+
+        result = json.loads(response.text)
+        return {"success": True, "data": result}
+
+    except Exception as e:
+        error_str = str(e)
+        print(f"Lỗi Quick Dictionary: {error_str}")
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+            return {"success": False, "error": "Hệ thống đang quá tải. Vui lòng thử lại sau."}
+        return {"success": False, "error": error_str}
+
+
+
