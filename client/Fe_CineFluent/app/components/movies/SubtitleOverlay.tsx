@@ -22,6 +22,7 @@ interface SubtitleOverlayProps {
   subtitleMode: "both" | "en" | "off";
   onWordClick: (word: string, context: string) => void;
   settings?: SubtitleSettings;
+  isBlurred?: boolean;
 }
 
 export function SubtitleOverlay({
@@ -30,6 +31,7 @@ export function SubtitleOverlay({
   subtitleMode,
   onWordClick,
   settings = { fontSize: "medium", bgOpacity: 0.9 },
+  isBlurred = false,
 }: SubtitleOverlayProps) {
   // Tìm subtitle hiện tại bằng Binary Search - O(log n)
   const currentSubtitle = useMemo(() => {
@@ -80,14 +82,18 @@ export function SubtitleOverlay({
   }[settings.fontSize];
 
   return (
-    <div className="absolute bottom-20 left-0 right-0 flex justify-center px-4 pointer-events-none z-[10]">
+    <div className="absolute bottom-5 left-0 right-0 flex justify-center px-4 pointer-events-none z-[10]">
       <div
         className="backdrop-blur-sm rounded-lg px-6 py-3 max-w-[85%] shadow-2xl border border-white/10 pointer-events-auto transition-all hover:bg-black/95"
         style={{ backgroundColor: `rgba(0, 0, 0, ${settings.bgOpacity})` }}
       >
         {/* Tiếng Anh - Dòng chính */}
         <p
-          className={`text-white font-semibold text-center leading-relaxed text-shadow-lg ${fontSizeClass}`}
+          className={`text-white font-semibold text-center leading-relaxed text-shadow-lg ${fontSizeClass} ${
+            isBlurred
+              ? "blur-[5px] select-none hover:blur-0 transition-all"
+              : ""
+          }`}
         >
           {tokens_sub.map((token, index) => {
             if (token.isWord) {
@@ -115,7 +121,13 @@ export function SubtitleOverlay({
 
         {/* Tiếng Việt - Dòng phụ (chỉ hiển thị khi mode là "both") */}
         {subtitleMode === "both" && currentSubtitle.content_vi && (
-          <p className="text-yellow-300 text-sm md:text-base text-center mt-1 leading-relaxed text-shadow-md">
+          <p
+            className={`text-yellow-300 text-sm md:text-base text-center mt-1 leading-relaxed text-shadow-md ${
+              isBlurred
+                ? "blur-[5px] select-none hover:blur-0 transition-all"
+                : ""
+            }`}
+          >
             {currentSubtitle.content_vi}
           </p>
         )}

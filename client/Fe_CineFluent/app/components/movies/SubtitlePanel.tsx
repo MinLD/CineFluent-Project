@@ -1,7 +1,16 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { Clock, Plus, Minus, Mic, Keyboard } from "lucide-react";
+import {
+  Clock,
+  Plus,
+  Minus,
+  Mic,
+  Keyboard,
+  X,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { tokenizeText } from "@/app/utils/tokenizeText";
 
 interface Subtitle {
@@ -19,6 +28,10 @@ interface SubtitlePanelProps {
   onPracticeClick?: (subtitle: Subtitle) => void;
   handleShowShadowingWhenClickSub?: (time: number, subtitle: Subtitle) => void;
   onWordClick?: (word: string, context: string) => void;
+  onDictationClick?: (subtitle: Subtitle) => void; // Callback khi bấm nút Keyboard
+  onClose?: () => void;
+  isBlurred?: boolean;
+  onToggleBlur?: () => void;
 }
 
 export function SubtitlePanel({
@@ -28,6 +41,10 @@ export function SubtitlePanel({
   onPracticeClick,
   handleShowShadowingWhenClickSub,
   onWordClick,
+  onDictationClick,
+  onClose,
+  isBlurred = false,
+  onToggleBlur,
 }: SubtitlePanelProps) {
   const adjustedTime = currentTime;
 
@@ -102,15 +119,45 @@ export function SubtitlePanel({
   };
 
   return (
-    <div className="bg-slate-900 rounded-lg border border-slate-700 h-[800px] lg:h-[calc(100vh-200px)] flex flex-col">
+    <div className="bg-slate-900 h-[600px] lg:h-full flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-slate-700">
-        <h2 className="text-xl font-bold text-white">PHỤ ĐỀ SONG NGỮ</h2>
+      {/* Header */}
+      <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          PHỤ ĐỀ SONG NGỮ
+        </h2>
+        <div className="flex items-center gap-2">
+          {/* Blur Toggle */}
+          <button
+            onClick={onToggleBlur}
+            className={`hover:cursor-pointer p-2 rounded-lg transition-all ${
+              isBlurred
+                ? "bg-blue-500/20 text-blue-400"
+                : "bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-white"
+            }`}
+            title={isBlurred ? "Hiện phụ đề" : "Làm mờ phụ đề"}
+          >
+            {isBlurred ? (
+              <EyeOff className="w-4 h-4" />
+            ) : (
+              <Eye className="w-4 h-4" />
+            )}
+          </button>
+
+          {/* Close Panel */}
+          <button
+            onClick={onClose}
+            className="hover:cursor-pointer p-2 bg-slate-700 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-lg transition-all"
+            title="Đóng danh sách"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Subtitle List */}
       <div ref={containerRef} className="flex-1 overflow-y-auto">
-        <div className="p-4 space-y-2 pb-96">
+        <div className="p-4 space-y-2 ">
           {subtitles.map((subtitle, index) => (
             <div
               key={subtitle.id}
@@ -121,11 +168,11 @@ export function SubtitlePanel({
               className={`p-3 rounded-lg cursor-pointer transition-all duration-200 relative group ${
                 index === currentIndex
                   ? "bg-blue-600 text-white shadow-lg"
-                  : "bg-slate-800 hover:bg-slate-700 text-slate-300 hover:scale-102"
+                  : "bg-slate-800 hover:bg-slate-700 text-slate-300"
               }`}
             >
               {/* Practice Button (Top Right) */}
-              <div className="flex flex-col gap-2  absolute top-2 right-2">
+              <div className="flex flex-col gap-2  absolute top-2 right-2 z-10">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -145,13 +192,11 @@ export function SubtitlePanel({
                     <Mic className="w-3 h-3 text-white" />
                   </div>
                 </button>
+                {/* NÚT DICTATION (MỚI) */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleShowShadowingWhenClickSub?.(
-                      subtitle.start_time,
-                      subtitle,
-                    );
+                    onDictationClick?.(subtitle);
                   }}
                   className={`hover:cursor-pointer p-1.5 rounded-full transition-all opacity-0 group-hover:opacity-100 ${
                     index === currentIndex
@@ -167,7 +212,11 @@ export function SubtitlePanel({
               </div>
 
               {/* English */}
-              <p className="font-medium mb-1 pr-8 text-white/90">
+              <p
+                className={`font-medium mb-1 pr-8 text-white/90 transition-all duration-300 ${
+                  isBlurred ? "blur-[5px] select-none hover:blur-0" : ""
+                }`}
+              >
                 {tokenizeText(subtitle.content_en)?.map((token, i) => {
                   if (token.isWord) {
                     return (
@@ -191,9 +240,9 @@ export function SubtitlePanel({
               {/* Vietnamese */}
               {subtitle.content_vi && (
                 <p
-                  className={`text-sm ${
+                  className={`text-sm transition-all duration-300 ${
                     index === currentIndex ? "text-blue-100" : "text-slate-400"
-                  }`}
+                  } ${isBlurred ? "blur-[5px] select-none hover:blur-0" : ""}`}
                 >
                   {subtitle.content_vi}
                 </p>

@@ -132,7 +132,7 @@ export const Pagination: React.FC<PaginationProps> = ({
               >
                 ...
               </span>
-            )
+            ),
           )}
 
           {/* Nút Next */}

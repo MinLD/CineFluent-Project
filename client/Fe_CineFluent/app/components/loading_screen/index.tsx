@@ -59,7 +59,7 @@ export default function LoadingScreen() {
               >
                 {char}
               </motion.span>
-            )
+            ),
           )}
         </div>
       </div>

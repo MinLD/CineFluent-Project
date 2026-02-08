@@ -147,7 +147,7 @@ export function CustomVideoControls({
   }, [isDragging, duration, onSeek]);
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-4 z-10">
+    <div className="bg-slate-900 p-4 border-t border-slate-700/30 relative z-[11]">
       {/* Progress Bar */}
       <div
         id="progress-bar"

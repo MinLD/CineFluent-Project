@@ -27,7 +27,7 @@ export function VideoPlayer({
   }, [video]);
 
   return (
-    <div className="bg-slate-900 rounded-lg overflow-hidden border border-slate-700">
+    <div className="bg-slate-900 overflow-hidden ">
       {video.youtube_id ? (
         // YouTube Video
         <div className="aspect-video">

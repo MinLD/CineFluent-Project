@@ -199,7 +199,7 @@ const AudioPage = ({
               </div>
               <button
                 onClick={onClose}
-                className="text-slate-500 hover:text-white text-sm font-medium transition-colors"
+                className="hover:cursor-pointer text-slate-500 hover:text-white text-sm font-medium transition-colors"
               >
                 Bỏ qua
               </button>

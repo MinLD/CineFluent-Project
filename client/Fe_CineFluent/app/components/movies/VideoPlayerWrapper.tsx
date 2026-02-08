@@ -7,6 +7,8 @@ import { SubtitleOverlay } from "./SubtitleOverlay";
 import { CustomVideoControls } from "./CustomVideoControls";
 import AudioPage from "./AudioPage"; // Import AudioPage
 import { QuickDictionaryModal } from "./QuickDictionaryModal";
+
+import { DictationModal } from "./DictationModal";
 import { I_Subtitle } from "@/app/lib/types/video";
 import { ArrowLeft, Flag } from "lucide-react";
 import Link from "next/link";
@@ -36,9 +38,16 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     "both",
   );
   const [showSubtitlePanel, setShowSubtitlePanel] = useState(true);
+  const [isBlurred, setIsBlurred] = useState(false); // State làm mờ phụ đề (Shared State)
 
   // Shadowing State
   const [shadowingSubtitle, setShadowingSubtitle] = useState<I_Subtitle | null>(
+    null,
+  );
+
+  // Dictation State
+  const [dictationMode, setDictationMode] = useState(false);
+  const [dictationSubtitle, setDictationSubtitle] = useState<I_Subtitle | null>(
     null,
   );
 
@@ -81,7 +90,11 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   const isInitializedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const hideControlsTimeoutRef = useRef<any>(null);
+
   const replayTimeoutRef = useRef<any>(null); // Ref for replay timeout
+  const playingSegmentEndTimeRef = useRef<number | null>(null); // Ref để kiểm tra thời gian kết thúc (Double Safety)
+  const activeSegmentCallbackRef = useRef<(() => void) | null>(null); // Callback khi kết thúc segment
+  const safetyCheckTimeoutRef = useRef<any>(null); // Timeout để kích hoạt Double Safety sau khi seek xong
 
   // Initialize YouTube Player
   useEffect(() => {
@@ -135,7 +148,29 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
               intervalRef.current = setInterval(() => {
                 if (playerRef.current?.getCurrentTime) {
                   const time = playerRef.current.getCurrentTime();
+
                   setCurrentTime(time);
+
+                  // --- DOUBLE SAFETY CHECK ---
+                  // Nếu đang phát một đoạn (Dictation/Shadowing) và đã vượt quá thời gian kết thúc
+                  if (
+                    playingSegmentEndTimeRef.current &&
+                    time >= playingSegmentEndTimeRef.current
+                  ) {
+                    playerRef.current.pauseVideo();
+                    playingSegmentEndTimeRef.current = null; // Reset
+
+                    // Xóa timeout dự phòng nếu có
+                    if (replayTimeoutRef.current) {
+                      clearTimeout(replayTimeoutRef.current);
+                    }
+
+                    // GỌI CALLBACK NGAY LẬP TỨC (Fix lỗi modal không hiện)
+                    if (activeSegmentCallbackRef.current) {
+                      activeSegmentCallbackRef.current();
+                      activeSegmentCallbackRef.current = null;
+                    }
+                  }
                 }
               }, 50);
             } else {
@@ -206,6 +241,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     if (!playerRef.current?.seekTo) return;
     playerRef.current.seekTo(time, true);
     setCurrentTime(time);
+    console.log("Seek to: ", time);
   }, []);
 
   // Handle Volume Change
@@ -259,6 +295,10 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       // 1. Force close modal & clear timeouts (Safe to call unconditionally)
       setShadowingSubtitle(null);
       if (replayTimeoutRef.current) clearTimeout(replayTimeoutRef.current);
+      if (safetyCheckTimeoutRef.current)
+        clearTimeout(safetyCheckTimeoutRef.current);
+      playingSegmentEndTimeRef.current = null;
+      activeSegmentCallbackRef.current = null;
 
       handleSeek(time);
       if (playerRef.current?.playVideo) {
@@ -268,28 +308,46 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     [handleSeek],
   );
 
-  const handleShowShadowingWhenClickSub = useCallback(
-    (time: number, subtitle: I_Subtitle) => {
-      // 1. Force close any previous modal & clear timeouts
-      setShadowingSubtitle(null);
+  // --- REUSABLE PLAYBACK LOGIC ---
+  const playSegmentAndThen = useCallback(
+    (subtitle: I_Subtitle, onComplete: () => void, bufferMs: number = 150) => {
+      // 1. Clear existing timeout
       if (replayTimeoutRef.current) clearTimeout(replayTimeoutRef.current);
+      if (safetyCheckTimeoutRef.current)
+        clearTimeout(safetyCheckTimeoutRef.current);
 
-      // 2. Seek & Play first (Don't set shadowingSubtitle yet)
       const durationMs = (subtitle.end_time - subtitle.start_time) * 1000;
 
-      handleSeek(time);
+      // 2. Clear old state immediately
+      playingSegmentEndTimeRef.current = null;
+      activeSegmentCallbackRef.current = onComplete; // Store callback
+
+      // 3. Seek to start
+      handleSeek(subtitle.start_time);
+
+      // 4. Play
       if (playerRef.current?.playVideo) {
         playerRef.current.playVideo();
       }
 
-      // 3. Timeout to Pause & THEN Show Modal
+      // 5. Activate Double Safety Check after 500ms (to skip seeking lag)
+      safetyCheckTimeoutRef.current = setTimeout(() => {
+        playingSegmentEndTimeRef.current = subtitle.end_time;
+      }, 800);
+
+      // 5. Set timeout to Pause & Execute Callback
       replayTimeoutRef.current = setTimeout(() => {
         if (playerRef.current?.pauseVideo) {
           playerRef.current.pauseVideo();
         }
-        // Shows the modal NOW, after playback is done
-        setShadowingSubtitle(subtitle);
-      }, durationMs + 250);
+        playingSegmentEndTimeRef.current = null; // Reset ref
+
+        // Gọi callback (nếu chưa được gọi bởi Interval)
+        if (activeSegmentCallbackRef.current) {
+          activeSegmentCallbackRef.current();
+          activeSegmentCallbackRef.current = null;
+        }
+      }, durationMs + bufferMs);
     },
     [handleSeek],
   );
@@ -319,31 +377,64 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
 
   const handleReplayOriginal = useCallback(() => {
     if (!shadowingSubtitle) return;
-
-    const sub = shadowingSubtitle;
-    const durationMs = (sub.end_time - sub.start_time) * 1000;
-
-    // 1. Hide modal temporarily
+    // Hide modal -> Play segment -> Show modal
     setShadowingSubtitle(null);
+    playSegmentAndThen(shadowingSubtitle, () => {
+      setShadowingSubtitle(shadowingSubtitle);
+    });
+  }, [shadowingSubtitle, playSegmentAndThen]);
 
-    // 2. Seek to start
-    handleSeek(sub.start_time);
+  const handleShowShadowingWhenClickSub = useCallback(
+    (time: number, subtitle: I_Subtitle) => {
+      // Force close any previous modal
+      setShadowingSubtitle(null);
 
-    // 3. Play
-    if (playerRef.current?.playVideo) {
-      playerRef.current.playVideo();
+      // Play segment -> Show modal
+      // Note: "time" arg is ignored in favor of subtitle.start_time in helper
+      playSegmentAndThen(subtitle, () => {
+        setShadowingSubtitle(subtitle);
+      });
+    },
+    [playSegmentAndThen],
+  );
+
+  // Handle Dictation Click from Panel
+  const handleDictationClick = useCallback(
+    (subtitle: I_Subtitle) => {
+      // Force close any previous dictation to reset
+      setDictationSubtitle(null);
+
+      // Play segment -> Show Dictation Modal
+      playSegmentAndThen(subtitle, () => {
+        setDictationSubtitle(subtitle);
+      });
+    },
+    [playSegmentAndThen],
+  );
+  const handleReplayVideo = useCallback(
+    (subtitle: I_Subtitle) => {
+      // Force close any previous dictation to reset
+
+      // Play segment -> Show Dictation Modal
+      playSegmentAndThen(subtitle, () => {});
+    },
+    [playSegmentAndThen],
+  );
+
+  const handleDictationNext = useCallback(() => {
+    if (!dictationSubtitle || !video.subtitles) return;
+    const currentIndex = video.subtitles.findIndex(
+      (s) => s.id === dictationSubtitle.id,
+    );
+    if (currentIndex !== -1 && currentIndex < video.subtitles.length - 1) {
+      const nextSubtitle = video.subtitles[currentIndex + 1];
+      handleDictationClick(nextSubtitle);
+    } else {
+      // Hết bài -> Đóng modal và phát tiếp
+      setDictationSubtitle(null);
+      if (playerRef.current) playerRef.current.playVideo();
     }
-
-    // 4. Set timeout to pause & reopen modal
-    if (replayTimeoutRef.current) clearTimeout(replayTimeoutRef.current);
-
-    replayTimeoutRef.current = setTimeout(() => {
-      if (playerRef.current?.pauseVideo) {
-        playerRef.current.pauseVideo();
-      }
-      setShadowingSubtitle(sub); // Re-open
-    }, durationMs + 200); // 200ms buffer
-  }, [shadowingSubtitle, handleSeek]);
+  }, [dictationSubtitle, video.subtitles, handleDictationClick]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -351,7 +442,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       // Chỉ xử lý khi focus vào video container
       if (!containerRef.current?.contains(document.activeElement)) return;
       // Không xử lý nếu đang mở modal shadowing (để AudioPage handle nếu cần)
-      if (shadowingSubtitle) return;
+      if (shadowingSubtitle || dictationSubtitle) return;
 
       switch (e.key) {
         case " ": // Space - Play/Pause
@@ -393,6 +484,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     handleVolumeChange,
     handleFullscreen,
     shadowingSubtitle,
+    dictationSubtitle,
   ]);
 
   // Auto-hide controls
@@ -414,7 +506,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   }, [resetHideControlsTimeout]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3">
       {/* Left: Video Player với Custom Controls & Subtitle Overlay */}
       <div
         className={`transition-all duration-500 ease-in-out ${
@@ -423,7 +515,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       >
         <div
           ref={containerRef}
-          className="relative bg-slate-900 rounded-lg overflow-hidden border border-slate-700 group max-h-[calc(100vh-200px)]"
+          className="relative bg-slate-900 overflow-hidden group max-h-[calc(100vh-200px)]"
           onMouseMove={handleMouseMove}
           onMouseLeave={() => setShowControls(false)}
           tabIndex={0}
@@ -461,72 +553,98 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
             subtitleMode={subtitleMode}
             onWordClick={handleWordClick}
             settings={subtitleSettings}
+            isBlurred={isBlurred}
           />
 
           {/* --- SHADOWING OVERLAY --- */}
           {shadowingSubtitle && (
-            <div className="absolute inset-0 z-11 flex items-center justify-center animate-fade-in">
+            <div className="absolute inset-0 z-[11] flex items-center justify-center animate-fade-in">
               <AudioPage
                 originalText={shadowingSubtitle.content_en}
-                onClose={handleAudioClose}
+                onClose={() => {
+                  setShadowingSubtitle(null);
+                  if (replayTimeoutRef.current)
+                    clearTimeout(replayTimeoutRef.current);
+                  playingSegmentEndTimeRef.current = null;
+                  activeSegmentCallbackRef.current = null;
+                  if (playerRef.current) playerRef.current.playVideo();
+                }}
                 onNext={handleAudioNext}
                 onReplayOriginal={handleReplayOriginal}
               />
             </div>
           )}
 
-          {/* --- DICTIONARY MODAL OVERLAY --- */}
-          {selectedWord && (
-            <div className="fixed inset-0 z-[48] pointer-events-auto flex items-center justify-center">
-              <QuickDictionaryModal
-                word={selectedWord.word}
-                context={selectedWord.context}
-                onClose={closeDictionary}
-              />
-            </div>
+          {/* --- DICTATION MODAL OVERLAY --- */}
+          {dictationSubtitle && (
+            <DictationModal
+              subtitle={dictationSubtitle}
+              onClose={() => {
+                setDictationSubtitle(null);
+                if (replayTimeoutRef.current)
+                  clearTimeout(replayTimeoutRef.current);
+                if (safetyCheckTimeoutRef.current)
+                  clearTimeout(safetyCheckTimeoutRef.current);
+                playingSegmentEndTimeRef.current = null;
+                activeSegmentCallbackRef.current = null;
+                if (playerRef.current) playerRef.current.playVideo();
+              }}
+              onReplay={() => handleReplayVideo(dictationSubtitle)}
+              onNext={handleDictationNext}
+            />
           )}
 
-          {/* Custom Controls */}
-          <div
-            className={`transition-opacity duration-300 ${
-              showControls ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            <CustomVideoControls
-              playerRef={playerRef}
-              currentTime={currentTime}
-              duration={duration}
-              isPlaying={isPlaying}
-              volume={volume}
-              playbackRate={playbackRate}
-              onPlayPause={handlePlayPause}
-              onSeek={handleSeek}
-              onVolumeChange={handleVolumeChange}
-              onPlaybackRateChange={handlePlaybackRateChange}
-              onFullscreen={handleFullscreen}
-              subtitleMode={subtitleMode}
-              onSubtitleModeChange={setSubtitleMode}
-              showSubtitlePanel={showSubtitlePanel}
-              onShowSubtitlePanelChange={setShowSubtitlePanel}
-              qualities={qualities}
-              currentQuality={currentQuality}
-              onQualityChange={handleQualityChange}
-              subtitleSettings={subtitleSettings}
-              onSubtitleSettingsChange={setSubtitleSettings}
+          {/* --- DICTIONARY MODAL OVERLAY --- */}
+          {selectedWord && (
+            <QuickDictionaryModal
+              word={selectedWord.word}
+              context={selectedWord.context}
+              onClose={closeDictionary}
             />
-          </div>
+          )}
+        </div>
+
+        {/* Custom Controls (Outside & Below Video) */}
+        <div className="w-full bg-slate-900 border-t border-slate-700/50 relative z-[11]">
+          <CustomVideoControls
+            playerRef={playerRef}
+            currentTime={currentTime}
+            duration={duration}
+            isPlaying={isPlaying}
+            volume={volume}
+            playbackRate={playbackRate}
+            onPlayPause={handlePlayPause}
+            onSeek={handleSeek}
+            onVolumeChange={handleVolumeChange}
+            onPlaybackRateChange={handlePlaybackRateChange}
+            onFullscreen={handleFullscreen}
+            subtitleMode={subtitleMode}
+            onSubtitleModeChange={setSubtitleMode}
+            showSubtitlePanel={showSubtitlePanel}
+            onShowSubtitlePanelChange={setShowSubtitlePanel}
+            qualities={qualities}
+            currentQuality={currentQuality}
+            onQualityChange={handleQualityChange}
+            subtitleSettings={subtitleSettings}
+            onSubtitleSettingsChange={setSubtitleSettings}
+          />
         </div>
       </div>
 
       {/* Right: Subtitle Panel (để navigate) */}
       {showSubtitlePanel && (
-        <div className="lg:col-span-1 animate-slide-in">
+        <div className="lg:col-span-1 animate-slide-in h-0 min-h-full">
           <SubtitlePanel
             subtitles={video.subtitles || []}
             currentTime={currentTime}
             onSubtitleClick={handleSubtitleClick}
             onPracticeClick={handlePracticeClick}
             handleShowShadowingWhenClickSub={handleShowShadowingWhenClickSub}
+            onWordClick={handleWordClick}
+            onDictationClick={handleDictationClick}
+            onClose={() => setShowSubtitlePanel(false)}
+            isBlurred={isBlurred}
+            onToggleBlur={() => setIsBlurred(!isBlurred)}
           />
         </div>
       )}

@@ -17,17 +17,15 @@ export default async function VideoDetailPage({
     return notFound();
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
-      <div className="container mx-auto px-4 py-8">
-        {/* Video Player with Synced Subtitles */}
-        <VideoPlayerWrapper video={video} />
+  return <>
+     {/* <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800"> */}
+      {/* Video Player with Synced Subtitles */}
+   
+    <VideoPlayerWrapper video={video} />
 
-        {/* Video Info */}
-        <div className="mt-6">
+      {/* Video Info */}
+      {/* <div className="mt-6">
           <VideoInfo video={video} />
-        </div>
-      </div>
-    </div>
-  );
+        </div> */}
+    </>
 }
