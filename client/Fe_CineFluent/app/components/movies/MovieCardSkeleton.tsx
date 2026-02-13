@@ -5,7 +5,7 @@ export function MovieCardSkeleton() {
     <div className="flex-shrink-0 w-[280px] overflow-hidden rounded-lg bg-slate-800 border border-slate-700 animate-pulse">
       {/* Thumbnail Skeleton */}
       <div className="relative aspect-video bg-slate-700">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/50 to-transparent animate-shimmer" />
+        <div className="absolute inset-0 bg-slate-600/20" />
       </div>
 
       {/* Info Skeleton */}

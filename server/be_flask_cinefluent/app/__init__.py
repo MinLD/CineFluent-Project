@@ -47,6 +47,12 @@ def create_app(config_name='default'):
 
 
 
+    # External movie controller removed as requested
+    # from .controller.external_movie_controller import external_bp
+    # app.register_blueprint(external_bp, url_prefix='/api/v1/external')
+
+
+
 
 
 

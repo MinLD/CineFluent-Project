@@ -1,18 +1,18 @@
 "use client";
 
-import { ExploreButton } from "@/app/components/movies/ExploreButton";
-import { Video, Loader2 } from "lucide-react";
-import banner from "../../../public/img/bannerMovie.jpg";
+import { Video, Loader2, Plus } from "lucide-react";
 import { useState } from "react";
 import { importYouTubeVideoAction } from "@/app/lib/actions/videos";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/app/lib/hooks/useAuth";
+import Modal_Show from "@/app/components/modal_show";
 
 export function HeroSection() {
   const { token } = useAuth();
   const [videoLink, setVideoLink] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -24,12 +24,10 @@ export function HeroSection() {
       if (data.success) {
         toast.success("Import video thành công!");
         setVideoLink(""); // Clear input
+        setIsOpen(false); // Close modal
 
         // Invalidate videos query to refetch the list
         queryClient.invalidateQueries({ queryKey: ["videos"] });
-
-        // Optional: Navigate to the new video
-        // router.push(`/studies/movies/${data.data.id}`);
       } else {
         toast.error(data.error || "Import video thất bại");
       }
@@ -46,7 +44,6 @@ export function HeroSection() {
       return;
     }
 
-    // Validate YouTube URL
     const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/;
     if (!youtubeRegex.test(videoLink)) {
       toast.error("Link YouTube không hợp lệ");
@@ -58,34 +55,30 @@ export function HeroSection() {
 
   return (
     <>
-      <div className="relative py-30">
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: `url(${banner.src})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        />
-        <div className="container mx-auto px-4 text-center relative z-10">
-          {/* Title */}
-          <h1 className="text-5xl font-bold text-white mb-4">Thư Viện Video</h1>
-          <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
-            Khám phá hàng ngàn video được phân tích bởi AI, sẵn sàng cho hành
-            trình học tiếng Anh của bạn
-          </p>
+      {/* Trigger Button */}
+      <button
+        onClick={() => setIsOpen(true)}
+        className="flex w-full md:w-auto justify-center items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-full transition-colors border border-slate-700"
+      >
+        <Plus size={18} />
+        <span>Import Video</span>
+      </button>
 
-          {/* Import Section */}
-          <div className="max-w-2xl mx-auto bg-slate-800/50 backdrop-blur-sm rounded-lg p-6 border border-slate-700">
-            <div className="flex items-center gap-3 mb-3">
-              <Video className="w-5 h-5 text-blue-400" />
-              <span className="text-slate-300 font-medium">
-                Dán link YouTube để import video mới:
-              </span>
-            </div>
+      {/* Import Modal */}
+      {isOpen && (
+        <Modal_Show setClose={() => setIsOpen(false)}>
+          <div className="p-2">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Video className="w-6 h-6 text-blue-600" />
+              Import Video từ YouTube
+            </h2>
 
-            <div className="flex gap-3">
+            <p className="text-gray-600 mb-4 text-sm">
+              Dán đường dẫn video YouTube vào bên dưới. Hệ thống sẽ tự động tải
+              subtitle và phân tích video.
+            </p>
+
+            <div className="flex gap-2">
               <input
                 type="text"
                 value={videoLink}
@@ -96,77 +89,40 @@ export function HeroSection() {
                   }
                 }}
                 placeholder="https://www.youtube.com/watch?v=..."
-                className="flex-1 px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                 disabled={importMutation.isPending}
+                autoFocus
               />
               <button
                 onClick={handleImport}
                 disabled={importMutation.isPending}
-                className="px-6 py-3 text-white bg-blue-500 font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-500 flex items-center gap-2 min-w-[140px] justify-center"
+                className="px-6 py-3 text-white bg-blue-600 font-semibold rounded-lg transition-all hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[120px] justify-center"
               >
                 {importMutation.isPending ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Đang xử lý...</span>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Xử lý...</span>
                   </>
                 ) : (
-                  "Nhập video"
+                  "Import"
                 )}
               </button>
             </div>
 
-            <p className="text-sm text-slate-400 mt-3">
-              Hỗ trợ YouTube và các nền tảng video phổ biến khác.
-            </p>
+            {/* Loading Status used to be an overlay, now inline/toast is better, but keeping overlay if user prefers strict waiting */}
+            {importMutation.isPending && (
+              <div className="mt-4 p-4 bg-blue-50 text-blue-700 rounded-lg flex items-center gap-3 text-sm">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <div>
+                  <p className="font-semibold">Đang xử lý video...</p>
+                  <p className="text-xs opacity-80">
+                    Vui lòng không đóng cửa sổ này.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-        <div className="absolute bottom-0 flex items-center justify-center w-full">
-          <ExploreButton />
-        </div>
-      </div>
-
-      {/* Loading Overlay - Shows during import */}
-      {importMutation.isPending && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md">
-          <div className="bg-slate-800/50 rounded-2xl p-8 border border-slate-700 shadow-2xl max-w-sm mx-4">
-            <div className="flex flex-col items-center gap-6">
-              {/* Animated Spinner */}
-              <div className="relative">
-                <div className="w-20 h-20 border-4 border-slate-700 rounded-full"></div>
-                <div className="absolute top-0 left-0 w-20 h-20 border-4 border-t-blue-500 border-r-purple-500 border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-              </div>
-
-              {/* Progress Text */}
-              <div className="text-center space-y-2">
-                <h3 className="text-xl font-bold text-white">
-                  Đang nhập video...
-                </h3>
-                <p className="text-sm text-slate-400">
-                  Đang tải subtitle và dịch sang tiếng Việt
-                </p>
-                <p className="text-xs text-slate-500 mt-4">
-                  Quá trình này có thể mất 30-60 giây
-                </p>
-              </div>
-
-              {/* Animated Dots */}
-              <div className="flex gap-2">
-                <div
-                  className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
-                  style={{ animationDelay: "0ms" }}
-                ></div>
-                <div
-                  className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"
-                  style={{ animationDelay: "150ms" }}
-                ></div>
-                <div
-                  className="w-2 h-2 bg-pink-500 rounded-full animate-bounce"
-                  style={{ animationDelay: "300ms" }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </Modal_Show>
       )}
     </>
   );

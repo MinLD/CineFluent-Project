@@ -13,6 +13,8 @@ import { I_Subtitle } from "@/app/lib/types/video";
 import { ArrowLeft, Flag } from "lucide-react";
 import Link from "next/link";
 
+import ExternalVideoPlayer from "./ExternalVideoPlayer";
+
 interface VideoPlayerWrapperProps {
   video: {
     id: number;
@@ -20,11 +22,21 @@ interface VideoPlayerWrapperProps {
     source_type?: string;
     source_url: string;
     youtube_id?: string;
+    imdb_id?: string;
     subtitles?: I_Subtitle[];
   };
 }
 
 export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
+  // External Video Player (VidSrc)
+  if (video.source_type === "external") {
+    return <ExternalVideoPlayer videoId={video.id} />;
+  }
+
+  const isDrive = video.source_type === "drive";
+  // const isDrive = true; // FORCE DRIVE FOR TESTING
+  const driveVideoRef = useRef<HTMLVideoElement>(null);
+
   // Player state
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -44,6 +56,8 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   const [shadowingSubtitle, setShadowingSubtitle] = useState<I_Subtitle | null>(
     null,
   );
+
+  const isTogglingRef = useRef(false); // Prevent rapid play/pause toggling
 
   // Dictation State
   const [dictationMode, setDictationMode] = useState(false);
@@ -98,7 +112,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
 
   // Initialize YouTube Player
   useEffect(() => {
-    if (!video.youtube_id || isInitializedRef.current) return;
+    if (isDrive || !video.youtube_id || isInitializedRef.current) return;
 
     const initPlayer = () => {
       if (playerRef.current) {
@@ -139,46 +153,9 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
 
             if (event.data === YT.PlayerState.PLAYING) {
               console.log("Video playing - starting time tracking");
-
-              if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-              }
-
-              // Track time every 50ms
-              intervalRef.current = setInterval(() => {
-                if (playerRef.current?.getCurrentTime) {
-                  const time = playerRef.current.getCurrentTime();
-
-                  setCurrentTime(time);
-
-                  // --- DOUBLE SAFETY CHECK ---
-                  // Nếu đang phát một đoạn (Dictation/Shadowing) và đã vượt quá thời gian kết thúc
-                  if (
-                    playingSegmentEndTimeRef.current &&
-                    time >= playingSegmentEndTimeRef.current
-                  ) {
-                    playerRef.current.pauseVideo();
-                    playingSegmentEndTimeRef.current = null; // Reset
-
-                    // Xóa timeout dự phòng nếu có
-                    if (replayTimeoutRef.current) {
-                      clearTimeout(replayTimeoutRef.current);
-                    }
-
-                    // GỌI CALLBACK NGAY LẬP TỨC (Fix lỗi modal không hiện)
-                    if (activeSegmentCallbackRef.current) {
-                      activeSegmentCallbackRef.current();
-                      activeSegmentCallbackRef.current = null;
-                    }
-                  }
-                }
-              }, 50);
+              // Interval is handled by unified useEffect now
             } else {
-              if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
-              }
-
+              // Interval cleared by unified useEffect
               if (
                 event.data === YT.PlayerState.PAUSED &&
                 playerRef.current?.getCurrentTime
@@ -225,8 +202,78 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     };
   }, [video.youtube_id]);
 
+  // Unified Interval & Event Listeners for Drive
+  useEffect(() => {
+    // Handle Drive Video Events
+    if (isDrive && driveVideoRef.current) {
+      const vid = driveVideoRef.current;
+      const onPlay = () => setIsPlaying(true);
+      const onPause = () => setIsPlaying(false);
+      const onLoadedMetadata = () => {
+        if (vid) {
+          setDuration(vid.duration);
+          vid.volume = volume / 100;
+        }
+      };
+      vid.addEventListener("play", onPlay);
+      vid.addEventListener("pause", onPause);
+      vid.addEventListener("loadedmetadata", onLoadedMetadata);
+      return () => {
+        vid.removeEventListener("play", onPlay);
+        vid.removeEventListener("pause", onPause);
+        vid.removeEventListener("loadedmetadata", onLoadedMetadata);
+      };
+    }
+  }, [isDrive, volume]); // Volume dependency to init volume
+
+  // Unified Interval for Time Tracking & Double Safety
+  useEffect(() => {
+    if (isPlaying) {
+      intervalRef.current = setInterval(() => {
+        let time = 0;
+        // Get Time
+        if (isDrive && driveVideoRef.current) {
+          time = driveVideoRef.current.currentTime;
+        } else if (playerRef.current?.getCurrentTime) {
+          time = playerRef.current.getCurrentTime();
+        }
+        setCurrentTime(time);
+
+        // --- DOUBLE SAFETY CHECK ---
+        if (
+          playingSegmentEndTimeRef.current &&
+          time >= playingSegmentEndTimeRef.current
+        ) {
+          // Pause
+          if (isDrive && driveVideoRef.current) driveVideoRef.current.pause();
+          else if (playerRef.current?.pauseVideo)
+            playerRef.current.pauseVideo();
+
+          playingSegmentEndTimeRef.current = null;
+          if (replayTimeoutRef.current) clearTimeout(replayTimeoutRef.current);
+
+          if (activeSegmentCallbackRef.current) {
+            activeSegmentCallbackRef.current();
+            activeSegmentCallbackRef.current = null;
+          }
+        }
+      }, 50);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isPlaying, isDrive]);
+
   // Handle Play/Pause
   const handlePlayPause = useCallback(() => {
+    if (isDrive && driveVideoRef.current) {
+      if (driveVideoRef.current.paused) driveVideoRef.current.play();
+      else driveVideoRef.current.pause();
+      return;
+    }
+
     if (!playerRef.current) return;
 
     if (isPlaying) {
@@ -234,29 +281,53 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     } else {
       playerRef.current.playVideo();
     }
-  }, [isPlaying]);
+  }, [isPlaying, isDrive]);
 
   // Handle Seek
-  const handleSeek = useCallback((time: number) => {
-    if (!playerRef.current?.seekTo) return;
-    playerRef.current.seekTo(time, true);
-    setCurrentTime(time);
-    console.log("Seek to: ", time);
-  }, []);
+  const handleSeek = useCallback(
+    (time: number) => {
+      if (isDrive && driveVideoRef.current) {
+        driveVideoRef.current.currentTime = time;
+        setCurrentTime(time);
+        return;
+      }
+      if (!playerRef.current?.seekTo) return;
+      playerRef.current.seekTo(time, true);
+      setCurrentTime(time);
+      console.log("Seek to: ", time);
+    },
+    [isDrive],
+  );
 
   // Handle Volume Change
-  const handleVolumeChange = useCallback((newVolume: number) => {
-    if (!playerRef.current?.setVolume) return;
-    playerRef.current.setVolume(newVolume);
-    setVolume(newVolume);
-  }, []);
+  const handleVolumeChange = useCallback(
+    (newVolume: number) => {
+      if (isDrive && driveVideoRef.current) {
+        driveVideoRef.current.volume = newVolume / 100;
+        setVolume(newVolume);
+        return;
+      }
+      if (!playerRef.current?.setVolume) return;
+      playerRef.current.setVolume(newVolume);
+      setVolume(newVolume);
+    },
+    [isDrive],
+  );
 
   // Handle Playback Rate Change
-  const handlePlaybackRateChange = useCallback((rate: number) => {
-    if (!playerRef.current?.setPlaybackRate) return;
-    playerRef.current.setPlaybackRate(rate);
-    setPlaybackRate(rate);
-  }, []);
+  const handlePlaybackRateChange = useCallback(
+    (rate: number) => {
+      if (isDrive && driveVideoRef.current) {
+        driveVideoRef.current.playbackRate = rate;
+        setPlaybackRate(rate);
+        return;
+      }
+      if (!playerRef.current?.setPlaybackRate) return;
+      playerRef.current.setPlaybackRate(rate);
+      setPlaybackRate(rate);
+    },
+    [isDrive],
+  );
 
   const handleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
@@ -275,7 +346,8 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   } | null>(null);
 
   const handleWordClick = useCallback((word: string, context: string) => {
-    if (playerRef.current?.pauseVideo) {
+    if (isDrive && driveVideoRef.current) driveVideoRef.current.pause();
+    else if (playerRef.current?.pauseVideo) {
       playerRef.current.pauseVideo();
     }
     // Clean word: remove punctuation
@@ -301,11 +373,12 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       activeSegmentCallbackRef.current = null;
 
       handleSeek(time);
-      if (playerRef.current?.playVideo) {
+      if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
+      else if (playerRef.current?.playVideo) {
         playerRef.current.playVideo();
       }
     },
-    [handleSeek],
+    [handleSeek, isDrive],
   );
 
   // --- REUSABLE PLAYBACK LOGIC ---
@@ -326,7 +399,8 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       handleSeek(subtitle.start_time);
 
       // 4. Play
-      if (playerRef.current?.playVideo) {
+      if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
+      else if (playerRef.current?.playVideo) {
         playerRef.current.playVideo();
       }
 
@@ -337,7 +411,8 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
 
       // 5. Set timeout to Pause & Execute Callback
       replayTimeoutRef.current = setTimeout(() => {
-        if (playerRef.current?.pauseVideo) {
+        if (isDrive && driveVideoRef.current) driveVideoRef.current.pause();
+        else if (playerRef.current?.pauseVideo) {
           playerRef.current.pauseVideo();
         }
         playingSegmentEndTimeRef.current = null; // Reset ref
@@ -355,7 +430,8 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   // --- SHADOWING HANDLERS ---
   const handlePracticeClick = useCallback((subtitle: I_Subtitle) => {
     // 1. Pause video
-    if (playerRef.current?.pauseVideo) {
+    if (isDrive && driveVideoRef.current) driveVideoRef.current.pause();
+    else if (playerRef.current?.pauseVideo) {
       playerRef.current.pauseVideo();
     }
     // 2. Open Modal
@@ -370,7 +446,8 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   const handleAudioNext = useCallback(() => {
     setShadowingSubtitle(null);
     // Resume video
-    if (playerRef.current?.playVideo) {
+    if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
+    else if (playerRef.current?.playVideo) {
       playerRef.current.playVideo();
     }
   }, []);
@@ -407,6 +484,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       // Play segment -> Show Dictation Modal
       playSegmentAndThen(subtitle, () => {
         setDictationSubtitle(subtitle);
+        setIsBlurred(true);
       });
     },
     [playSegmentAndThen],
@@ -432,7 +510,8 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     } else {
       // Hết bài -> Đóng modal và phát tiếp
       setDictationSubtitle(null);
-      if (playerRef.current) playerRef.current.playVideo();
+      if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
+      else if (playerRef.current) playerRef.current.playVideo();
     }
   }, [dictationSubtitle, video.subtitles, handleDictationClick]);
 
@@ -520,7 +599,24 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
           onMouseLeave={() => setShowControls(false)}
           tabIndex={0}
         >
-          <VideoPlayer video={video} playerId="youtube-player-sync" />
+          {isDrive ? (
+            /* DRIVE PLAYER (HTML5) */
+            <div className="relative w-full aspect-video bg-black">
+              <video
+                ref={driveVideoRef}
+                src={
+                  isDrive
+                    ? `/api/videos/stream/drive/${video.source_url}`
+                    : video.source_url
+                }
+                className="w-full h-full"
+                controls={true} // Custom controls only
+                playsInline
+              />
+            </div>
+          ) : (
+            <VideoPlayer video={video} playerId="youtube-player-sync" />
+          )}
 
           {/* Top Overlay Buttons */}
           <div
@@ -567,7 +663,6 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
                     clearTimeout(replayTimeoutRef.current);
                   playingSegmentEndTimeRef.current = null;
                   activeSegmentCallbackRef.current = null;
-                  if (playerRef.current) playerRef.current.playVideo();
                 }}
                 onNext={handleAudioNext}
                 onReplayOriginal={handleReplayOriginal}
@@ -587,7 +682,9 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
                   clearTimeout(safetyCheckTimeoutRef.current);
                 playingSegmentEndTimeRef.current = null;
                 activeSegmentCallbackRef.current = null;
-                if (playerRef.current) playerRef.current.playVideo();
+                if (isDrive && driveVideoRef.current)
+                  driveVideoRef.current.play();
+                else if (playerRef.current) playerRef.current.playVideo();
               }}
               onReplay={() => handleReplayVideo(dictationSubtitle)}
               onNext={handleDictationNext}

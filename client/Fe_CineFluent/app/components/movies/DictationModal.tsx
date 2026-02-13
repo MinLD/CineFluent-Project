@@ -10,6 +10,7 @@ interface DictationModalProps {
   onClose: () => void;
   onReplay: () => void;
   onNext: () => void;
+  
 }
 
 export function DictationModal({

@@ -41,6 +41,7 @@ export function VideoPlayer({
             controls
             className="w-full h-full"
             onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+            autoPlay
           />
         </div>
       ) : (

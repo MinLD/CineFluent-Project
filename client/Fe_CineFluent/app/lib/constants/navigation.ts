@@ -1,6 +1,6 @@
 // constants/navigation.ts
 
-import { Clapperboard, Gamepad2, Home } from "lucide-react";
+import { Clapperboard, Gamepad2, Home, Send } from "lucide-react";
 
 export const mainNavLinks = [
   { id: 0, href: "/", label: "Trang chủ", icons: Home },
@@ -11,4 +11,10 @@ export const mainNavLinks = [
     icons: Clapperboard,
   },
   { id: 2, href: "/studies/games", label: "Học qua game", icons: Gamepad2 },
+  {
+    id: 3,
+    href: "/",
+    label: "Gửi yêu cầu",
+    icons: Send,
+  },
 ];

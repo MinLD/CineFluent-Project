@@ -22,6 +22,8 @@ class VideoSchema(Schema):
     category = fields.Nested(CategorySchema)
     subtitles = fields.List(fields.Nested(SubtitleSchema))
     slug = fields.Str()
+    source_type = fields.Str()
+    imdb_id = fields.Str()
 
 
 
@@ -35,6 +37,8 @@ class VideoDetailSchema(Schema):
         view_count = fields.Int()
         category = fields.Nested(CategorySchema)
         slug = fields.Str()
+        source_type = fields.Str()
+        imdb_id = fields.Str()
 
         # Lồng danh sách subtitles vào đây
         subtitles = fields.List(fields.Nested(SubtitleSchema))

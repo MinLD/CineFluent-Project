@@ -1,3 +1,5 @@
+import BannerCarousel from "@/app/components/movies/BannerCarousel";
+import { ExploreButton } from "@/app/components/movies/ExploreButton";
 import { FilterSection } from "@/app/components/movies/FilterSection";
 import { HeroSection } from "@/app/components/movies/HeroSection";
 import { MovieCardSkeleton } from "@/app/components/movies/MovieCardSkeleton";
@@ -13,9 +15,8 @@ const MoviePage = ({
   slots: React.ReactNode;
 }) => {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
-      {/* Hero Section with Import */}
-      <HeroSection />
+    <div className="min-h-screen bg-slate-900">
+     <BannerCarousel/>
 
       {/* Filters */}
       <div className="container mx-auto px-4 py-8">

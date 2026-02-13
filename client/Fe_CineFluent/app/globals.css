@@ -44,7 +44,7 @@ body {
 }
 
 .swiper-pagination-bullet-active {
-  background-color: #00b14f !important;
+  background-color: white !important;
 }
 .swiper-pagination {
   position: static !important; /* Chuyển từ Absolute (trôi) sang Static (nằm cố định) */

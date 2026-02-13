@@ -43,7 +43,7 @@ function HomePages({ slots }: prop) {
                   <motion.div
                     whileHover={{ scale: 1.1, rotate: 5 }} // Phóng to và xoay nhẹ
                     transition={{ type: "spring", stiffness: 300 }}
-                    className="w-20 h-20 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/20"
+                    className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/20"
                   >
                     <Icon className="w-9 h-9 text-white" />
                   </motion.div>

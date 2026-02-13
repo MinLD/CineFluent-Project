@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { getVideosAction } from "@/app/lib/actions/videos";
 import { Loader2 } from "lucide-react";
 import { I_Video } from "@/app/lib/types/video";
+import MySlider from "@/app/components/my_slide";
+import { SwiperSlide } from "swiper/react";
 
 interface VideoListProps {
   initialVideos: I_Video[];
@@ -41,10 +43,22 @@ export function VideoList({ initialVideos }: VideoListProps) {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {videos.map((video: any) => (
-          <VideoCard key={video.id} video={video} />
-        ))}
+      <div className="w-full">
+        <MySlider
+          swiperOptions={{
+            autoplay: false,
+            navigation: false,
+            slidesPerView: 1.2,
+            spaceBetween: 10,
+          }}
+          className="cursor-pointer"
+        >
+          {videos.map((video: any) => (
+            <SwiperSlide key={video.id}>
+              <VideoCard video={video} />
+            </SwiperSlide>
+          ))}
+        </MySlider>
       </div>
     </>
   );

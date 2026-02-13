@@ -11,6 +11,7 @@ export interface I_Subtitle {
 export interface I_Video {
   id: number;
   youtube_id?: string;
+  imdb_id?: string;
   title: string;
   description?: string;
   source_type: string;

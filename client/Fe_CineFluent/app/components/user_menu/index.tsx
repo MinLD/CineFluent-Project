@@ -11,6 +11,7 @@ import {
   BookOpen,
   ChevronDown,
   Sparkles,
+  Crown,
 } from "lucide-react";
 import { Ty_User } from "@/app/lib/types/users";
 import { AnimatePresence, motion } from "framer-motion";
@@ -46,8 +47,8 @@ export default function UserMenu({ user }: { user: Ty_User }) {
         onClick={() => setIsOpen(!isOpen)}
         className="group flex items-center gap-3 pl-2 pr-1 py-1 rounded-full transition-all duration-300 hover:bg-gray-100 dark:hover:bg-zinc-800 outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
       >
-        <div className="text-right hidden md:block">
-          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+        <div className="text-right hidden lg:block">
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors max-w-[150px] truncate">
             {user.profile.fullname}
           </p>
           <div className="flex items-center justify-end gap-1">
@@ -67,7 +68,7 @@ export default function UserMenu({ user }: { user: Ty_User }) {
                 className="object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+              <div className="w-full h-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
                 {getInitials(user.profile.fullname)}
               </div>
             )}
@@ -88,7 +89,7 @@ export default function UserMenu({ user }: { user: Ty_User }) {
             className="z-80 absolute right-0 mt-3 w-72 bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-gray-100 dark:border-zinc-800 overflow-hidden ring-1 ring-black/5"
           >
             {/* Header của Menu */}
-            <div className="p-4 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10 border-b border-dashed border-gray-200 dark:border-zinc-800/50">
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border-b border-dashed border-gray-200 dark:border-zinc-800/50">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white dark:border-zinc-800 shadow-sm shrink-0">
                   {user.profile.avatar_url ? (
@@ -100,7 +101,7 @@ export default function UserMenu({ user }: { user: Ty_User }) {
                       className="object-cover w-full h-full"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold">
+                    <div className="w-full h-full bg-blue-600 flex items-center justify-center text-white font-bold">
                       {getInitials(user.profile.fullname)}
                     </div>
                   )}
@@ -114,24 +115,16 @@ export default function UserMenu({ user }: { user: Ty_User }) {
                   </p>
                 </div>
               </div>
-
-              <div className="flex items-center justify-between p-2 bg-white/60 dark:bg-black/20 rounded-lg border border-gray-100 dark:border-white/5 backdrop-blur-sm">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-md">
-                    <Sparkles size={14} fill="currentColor" />
-                  </div>
-                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    Points
-                  </span>
-                </div>
-                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                  {user.profile.total_points} PTS
-                </span>
-              </div>
             </div>
 
             {/* Nhóm chức năng chính */}
             <div className="p-2 space-y-0.5">
+              <MenuItem
+                href="/settings/profile"
+                icon={<Crown size={18} />}
+                label="Gói VIP"
+                onClick={() => setIsOpen(false)}
+              />
               <MenuItem
                 href="/settings/profile"
                 icon={<User size={18} />}
@@ -139,16 +132,9 @@ export default function UserMenu({ user }: { user: Ty_User }) {
                 onClick={() => setIsOpen(false)}
               />
               <MenuItem
-                href="/wallet"
-                icon={<CreditCard size={18} />}
-                label="Ví Time-Credits"
-                badge={`${user.profile.total_points}`}
-                onClick={() => setIsOpen(false)}
-              />
-              <MenuItem
                 href="/my-courses"
                 icon={<BookOpen size={18} />}
-                label="Khóa học của tôi"
+                label="Flashcards"
                 onClick={() => setIsOpen(false)}
               />
             </div>
@@ -157,12 +143,6 @@ export default function UserMenu({ user }: { user: Ty_User }) {
 
             {/* Nhóm cài đặt & Logout */}
             <div className="p-2 pt-0 space-y-0.5">
-              <MenuItem
-                href="/settings"
-                icon={<Settings size={18} />}
-                label="Cài đặt"
-                onClick={() => setIsOpen(false)}
-              />
               <button
                 onClick={() => {
                   console.log("Logout logic here");

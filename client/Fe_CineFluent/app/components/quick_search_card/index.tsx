@@ -355,7 +355,7 @@ export default function QuickSearchCard() {
               onClick={handleSearch}
               type="button"
               disabled={!submittable || isSearching}
-              className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 py-3.5 text-base font-bold text-white shadow-md transition-all hover:opacity-90 hover:shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed disabled:grayscale"
+              className="group flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 py-3.5 text-base font-bold text-white shadow-md transition-all hover:opacity-90 hover:shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed disabled:grayscale"
             >
               <Zap className="fill-current" size={20} />
               <span>Tìm kiếm nhanh</span>

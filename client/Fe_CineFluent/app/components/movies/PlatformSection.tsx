@@ -16,7 +16,7 @@ export function PlatformSection({
   icon,
   description,
   iconColor = "text-blue-500",
-  accentColor = "from-blue-500/20 to-purple-500/20",
+  accentColor = "bg-blue-500/20",
   children,
 }: PlatformSectionProps) {
   return (

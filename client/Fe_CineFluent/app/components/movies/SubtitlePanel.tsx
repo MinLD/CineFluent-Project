@@ -35,7 +35,7 @@ interface SubtitlePanelProps {
 }
 
 export function SubtitlePanel({
-  subtitles,
+  subtitles,  
   currentTime = 0,
   onSubtitleClick,
   onPracticeClick,

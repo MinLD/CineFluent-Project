@@ -43,9 +43,7 @@ const Banner = () => {
               className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-bold mb-4 sm:mb-6 tracking-tight leading-tight"
             >
               Học tiếng Anh qua
-              <span className="bg-gradient-to-r from-blue-500 to-blue-500 bg-clip-text text-transparent block mt-2">
-                Phim ảnh 🎬
-              </span>
+              <span className="text-blue-500 block mt-2">Phim ảnh 🎬</span>
             </motion.h1>
             <motion.div
               variants={itemVariants}

@@ -87,10 +87,18 @@ class Category(db.Model):
 class Video(db.Model):
     __tablename__ = 'videos'
     id = db.Column(db.Integer, primary_key=True)
-    # Hỗ trợ đa nguồn
-    source_type = db.Column(db.Enum('youtube', 'drive', 'local'), default='youtube')
-    source_url = db.Column(db.String(500), nullable=False)
-    youtube_id = db.Column(db.String(50), unique=True, nullable=True)  # Chỉ dùng cho YT [cite: 61, 92]
+    # Hỗ trợ đa nguồn: youtube, drive, local, external (VidSrc)
+    source_type = db.Column(db.Enum('youtube', 'drive', 'local', 'external'), default='youtube')
+    source_url = db.Column(db.String(500), nullable=True) # Có thể null nếu dùng stream_url
+    
+    # YouTube specific
+    youtube_id = db.Column(db.String(50), unique=True, nullable=True)
+    
+    # External Movie specific (VidSrc / TMDb)
+    imdb_id = db.Column(db.String(20), unique=True, nullable=True) # tt1234567
+    stream_url = db.Column(db.String(500), nullable=True) # Link .m3u8 hoặc embed
+    backdrop_url = db.Column(db.String(500), nullable=True) # Ảnh nền to
+    
     slug = db.Column(db.String(100), nullable=True, unique=True)
     title = db.Column(db.String(255), nullable=False)
     thumbnail_url = db.Column(db.String(500))

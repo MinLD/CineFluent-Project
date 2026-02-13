@@ -66,22 +66,22 @@ export default function SidebarWithAuth({ onClose }: { onClose: () => void }) {
               </p>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Link href="/login">
-                <button className="cursor-pointer px-3 py-1 font-medium text-gray-600 transition-all hover:text-blue-800 dark:text-gray-300 dark:hover:text-blue-400">
+            <div className="flex flex-col gap-3 mt-4">
+              <Link href="/login" className="w-full">
+                <button className="w-full rounded-xl border border-gray-200 py-2.5 font-bold text-gray-700 transition-all hover:bg-gray-50 hover:text-blue-600 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
                   Đăng nhập
                 </button>
               </Link>
-              <Link href="/auth/register">
-                <button className="cursor-pointer rounded-sm bg-blue-600 px-3 py-1 text-white transition-all hover:bg-blue-800">
-                  Đăng ký
+              <Link href="/auth/register" className="w-full">
+                <button className="w-full rounded-xl bg-blue-600 py-2.5 font-bold text-white shadow-lg shadow-blue-500/30 transition-all hover:bg-blue-700 hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0">
+                  Đăng ký miễn phí
                 </button>
               </Link>
             </div>
           </div>
         ) : (
           <div className="flex items-center gap-3 rounded-xl  ">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 font-bold text-white shadow-blue-200">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 font-bold text-white shadow-blue-200">
               N
             </div>
             <div className="flex-1 overflow-hidden">

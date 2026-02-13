@@ -26,15 +26,6 @@ export function VideoCard({ video }: VideoCardProps) {
 
   const SourceIcon = sourceIcons[video.source_type] || Globe;
 
-  const levelColors = {
-    Beginner: "bg-green-500",
-    Intermediate: "bg-yellow-500",
-    Advanced: "bg-red-500",
-  };
-
-  const levelColor =
-    levelColors[video.level as keyof typeof levelColors] || "bg-gray-500";
-
   return (
     <Link href={`/studies/movies/${video.slug}`}>
       <div className="flex-shrink-0 w-[280px] group relative overflow-hidden rounded-lg bg-slate-800 border border-slate-700  transition-all duration-300 cursor-pointer">
@@ -71,28 +62,6 @@ export function VideoCard({ video }: VideoCardProps) {
           <h3 className="text-white font-semibold line-clamp-2 mb-2 group-hover:text-blue-400 transition">
             {video.title}
           </h3>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Category */}
-            {video.category && (
-              <span className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full">
-                {video.category.name}
-              </span>
-            )}
-
-            {/* Level */}
-            <span
-              className={`px-2 py-1 ${levelColor} text-white text-xs rounded-full`}
-            >
-              {video.level}
-            </span>
-          </div>
-
-          {/* View Count */}
-          <div className="flex items-center gap-1 mt-3 text-slate-400 text-sm">
-            <Eye className="w-4 h-4" />
-            <span>{video.view_count.toLocaleString()} views</span>
-          </div>
         </div>
       </div>
     </Link>

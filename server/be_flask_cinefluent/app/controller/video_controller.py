@@ -58,3 +58,106 @@ def get_detail(slug: str):
     res_data['subtitles'] = SubtitleSchema(many=True).dump(ordered_subs)
 
     return success_response(data=res_data)
+
+@video_bp.route('/<int:video_id>/subtitles', methods=['GET'])
+def get_subtitles(video_id):
+    """
+    Lấy danh sách phụ đề của một video theo ID.
+    Dùng cho ExternalVideoPlayer khi load sub.
+    """
+    video = Video.query.get(video_id)
+    if not video:
+        return error_response("Video not found", 404)
+
+    return success_response(data=SubtitleSchema(many=True).dump(ordered_subs))
+
+from flask import Response, stream_with_context
+from app.services.google_drive_service import stream_file_content, get_file_metadata
+import re
+
+@video_bp.route('/stream/drive/<file_id>', methods=['GET'])
+def stream_drive_video(file_id):
+    """
+    Stream video directly from Google Drive with Range support.
+    """
+    range_header = request.headers.get('Range', None)
+    
+    # Get file metadata to know size
+    metadata = get_file_metadata(file_id)
+    if not metadata:
+        return error_response("File not found or unaccessible", 404)
+        
+    file_size = int(metadata.get('size', 0))
+    mime_type = metadata.get('mimeType', 'video/mp4')
+    print(f"[DEBUG] VideoController - Stream ID: {file_id} | Mime: {mime_type}")
+    
+    byte1, byte2 = 0, None
+    if range_header:
+        match = re.search(r'bytes=(\d+)-(\d*)', range_header)
+        if match:
+            groups = match.groups()
+            byte1 = int(groups[0])
+            if groups[1]:
+                byte2 = int(groups[1])
+    
+    if byte2 is None:
+        byte2 = file_size - 1
+        
+    length = byte2 - byte1 + 1
+    
+    # Stream content generator
+    def generate():
+        # Stream in chunks of 1MB or similar, but stream_file_content handles the range
+        # Google Drive API 'get_media' with range returns the whole range.
+        # If the browser requests a huge range, we might want to limit it or just proxy it.
+        # For now, let's proxy the requested range.
+        stream = stream_file_content(file_id, byte1, byte2)
+        if stream:
+            for chunk in stream:
+                yield chunk
+            
+    # Response
+    resp = Response(stream_with_context(generate()), 
+                    status=206, 
+                    mimetype=mime_type, 
+                    direct_passthrough=True)
+    
+    resp.headers.add('Content-Range', f'bytes {byte1}-{byte2}/{file_size}')
+    resp.headers.add('Accept-Ranges', 'bytes')
+    resp.headers.add('Content-Length', str(length))
+    
+    return resp
+
+@video_bp.route('/subtitles/parse', methods=['POST'])
+def parse_subtitle_file():
+    """
+    Parse file SRT upload thành JSON.
+    Input: File .srt (multipart/form-data)
+    Output: JSON array các subtitle lines.
+    """
+    if 'file' not in request.files:
+        return error_response("No file part", 400)
+        
+    file = request.files['file']
+    if file.filename == '':
+        return error_response("No selected file", 400)
+        
+    if not file.filename.endswith('.srt'):
+        return error_response("File must be .srt", 400)
+        
+    try:
+        # Đọc nội dung file
+        content = file.read().decode('utf-8')
+        
+        # Import hàm parse từ service cũ (để tận dụng code)
+        from app.utils.subtitle_utils import parse_srt
+        
+        # Parse
+        subtitles = parse_srt(content)
+        
+        return success_response(data=subtitles, message="Parsed successfully")
+        
+    except UnicodeDecodeError:
+        return error_response("File encoding must be UTF-8", 400)
+    except Exception as e:
+        return error_response(str(e), 500)

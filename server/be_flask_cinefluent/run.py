@@ -70,7 +70,7 @@ def seed(with_admin):
             db.session.rollback()
             click.echo(f'Lỗi khi tạo tài khoản admin: {e}')
 if __name__ == '__main__':
-    app.run(debug=True, reloader_type='watchdog')
+    app.run(debug=True, reloader_type='watchdog', threaded=True)
     # MỚI: Dùng socketio để chạy app
     # allow_unsafe_werkzeug=True: Để chạy được trên môi trường Dev (localhost)
     # print("🚀 Server đang chạy với SocketIO tại http://127.0.0.1:5000")
