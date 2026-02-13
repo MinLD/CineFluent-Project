@@ -1,6 +1,5 @@
 "use client";
 
-import { I_User_Stats_ChartData } from "@/app/lib/types/users";
 import {
   AreaChart,
   Area,

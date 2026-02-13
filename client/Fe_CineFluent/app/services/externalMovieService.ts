@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/v1/external`;
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost/api"}/v1/external`;
 
 const getAuthHeader = () => {
   const token = localStorage.getItem("access_token");

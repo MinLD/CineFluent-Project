@@ -1,4 +1,5 @@
 import CategoriesFetcher from "@/app/components/fetcher_components/CategoriesFetcher";
+export const dynamic = "force-dynamic";
 import HomePages from "@/app/components/home_page";
 
 export default async function Home() {

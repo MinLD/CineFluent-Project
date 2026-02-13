@@ -92,13 +92,16 @@ export async function updateUserAction(prevState: any, formData: FormData) {
     }
 
     // ✅ API call on server side
-    const response = await fetch(`http://127.0.0.1:5000/api/users/${userId}`, {
-      method: "PATCH",
-      body: formData,
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const response = await fetch(
+      `${process.env.API_URL_INTERNAL || "http://backend:5000/api"}/users/${userId}`,
+      {
+        method: "PATCH",
+        body: formData,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -129,13 +132,16 @@ export async function updateUserProfileAction(formData: FormData) {
     const token = formData.get("token") as string;
 
     // ✅ API call on server side
-    const response = await fetch(`http://127.0.0.1:5000/api/users/profile`, {
-      method: "PATCH",
-      body: formData,
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const response = await fetch(
+      `${process.env.API_URL_INTERNAL || "http://backend:5000/api"}/users/profile`,
+      {
+        method: "PATCH",
+        body: formData,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       const errorData = await response.json();

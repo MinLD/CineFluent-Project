@@ -120,7 +120,7 @@ const AudioPage = ({
         const base64Audio = (reader.result as string).split(",")[1];
 
         const response = await fetch(
-          "http://localhost:5000/api/learning/test-audio",
+          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost/api"}/learning/test-audio`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

@@ -62,7 +62,7 @@ export const UserInformation = () => {
     email: Yup.string().email("Email không hợp lệ").required("Bắt buộc"),
     phone: Yup.string().matches(
       /(84|0[3|5|7|8|9])+([0-9]{8})\b/,
-      "Số điện thoại không hợp lệ"
+      "Số điện thoại không hợp lệ",
     ),
     date_of_birth: Yup.string(), // Provide loose validation for date string
     bio: Yup.string().max(500, "Mô tả tối đa 500 ký tự"),
@@ -78,7 +78,7 @@ export const UserInformation = () => {
       date_of_birth: user?.profile?.date_of_birth
         ? new Date(user.profile.date_of_birth).toISOString().split("T")[0]
         : "", // Format date for input type="date"
-      social_links: user?.profile?.social_links || "",
+      social_links: user?.profile?.bio || "",
     },
     enableReinitialize: true, // Important: Allows form to reset if user prop updates from server
     validationSchema,

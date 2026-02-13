@@ -39,13 +39,13 @@ function CardCategories({ categories, className = "" }: Props) {
       <div>
         {/* --- PHẦN XỬ LÝ ẢNH (ICON) --- */}
         <div className="w-18 h-18 bg-blue-50 rounded-2xl flex items-center justify-center mb-5 group-hover:bg-blue-100 transition-colors duration-300">
-          {categories.avatar?.secure_url ? (
+          {categories.avatar_url ? (
             <div className="relative w-15 h-15">
               <Image
                 fill // Dùng fill để ảnh tự bung theo cha (w-8 h-8)
                 sizes="32px"
                 alt={categories.name}
-                src={categories.avatar.secure_url}
+                src={categories.avatar_url}
                 className="object-contain p-0.5" // p-0.5 giúp ảnh ko bị sát viền nếu ảnh gốc quá to
               />
             </div>

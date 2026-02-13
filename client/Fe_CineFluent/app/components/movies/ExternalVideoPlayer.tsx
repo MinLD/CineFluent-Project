@@ -40,7 +40,7 @@ export default function ExternalVideoPlayer({
         // 2. Lấy Subtitle từ API của mình (đã lưu trong DB)
         // Lưu ý: Cần endpoint lấy sub theo video_id (dùng lại API cũ)
         const subRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/videos/${videoId}/subtitles`,
+          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost/api"}/videos/${videoId}/subtitles`,
         );
         const subData = await subRes.json();
         setSubtitles(subData.data || []);
@@ -122,7 +122,7 @@ export default function ExternalVideoPlayer({
         <SubtitlePanel
           subtitles={subtitles}
           currentTime={currentTime}
-          onSeek={(time: number) => {
+          onSubtitleClick={(time: number) => {
             // Khó seek iframe, chỉ seek được biến local currentTime
             setCurrentTime(time);
           }}

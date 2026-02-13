@@ -50,12 +50,12 @@ export const SkillInformation = ({
   const [isAddSkillModalOpen, setIsAddSkillModalOpen] = useState(false);
   const [isUpdateProofModalOpen, setIsUpdateProofModalOpen] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<I_skills_user | null>(
-    null
+    null,
   );
 
   // -- States for Data & Form --
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(
-    null
+    null,
   );
 
   // -- Handlers --
@@ -105,7 +105,7 @@ export const SkillInformation = ({
               <div className="flex items-center gap-4 mb-3 sm:mb-0">
                 <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
                   <Image
-                    src={skill.skill.avatar.secure_url}
+                    src={skill.skill.avatar_url || ""}
                     alt={skill.skill.name}
                     width={48}
                     height={48}
@@ -121,12 +121,12 @@ export const SkillInformation = ({
               </div>
 
               <div className="flex sm:items-center flex-col sm:flex-row gap-3 mt-4 sm:mt-0">
-                {skill.avatar ? (
+                {skill.avatar_url ? (
                   <>
                     <Button
                       icon={<Eye size={16} />}
                       className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center gap-2"
-                      onClick={() => handleOpenProof(skill.avatar.secure_url)}
+                      onClick={() => handleOpenProof(skill.avatar_url || "")}
                     >
                       Xem minh chứng
                     </Button>

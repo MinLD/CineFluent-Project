@@ -3,3 +3,4 @@
 .env.*.local
 node_modules/
 server/be_flask_cinefluent/.env
+app/utils/service-account.json

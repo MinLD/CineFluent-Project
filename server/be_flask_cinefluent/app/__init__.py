@@ -18,10 +18,11 @@ def create_app(config_name='default'):
     db.init_app(app)
     register_error_handlers(app)
     # Gọi hàm init_app từ đối tượng cors
-    cors.init_app(app, resources={r"/api/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}},
+    cors.init_app(app, resources={r"/api/*": {"origins": ["http://localhost", "http://localhost:3000", "http://127.0.0.1:3000", "http://frontend:3000"]}},
                   supports_credentials=True)
     migrate.init_app(app, db)
     jwt.init_app(app)
+    socketio.init_app(app, cors_allowed_origins="*")
     cloudinary.config(
         cloud_name=app.config['CLOUDINARY_CLOUD_NAME'],
         api_key=app.config['CLOUDINARY_API_KEY'],

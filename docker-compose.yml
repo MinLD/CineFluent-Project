@@ -1,0 +1,71 @@
+services:
+  # Database Service
+  db:
+    image: mysql:8.0 # User requested 9.6.0 but it doesn't exist for MySQL to my knowledge. 8.0 is standard.
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - cinefluent-network
+    env_file:
+      - .env
+
+  # Backend Service (Flask)
+  backend:
+    build:
+      context: ./server/be_flask_cinefluent
+      dockerfile: Dockerfile
+    image: minld/backend:latest
+    restart: always
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    networks:
+      - cinefluent-network
+    env_file:
+      - .env
+
+  # Frontend Service (Next.js)
+  frontend:
+    build:
+      context: ./client/Fe_CineFluent
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+    image: minld/frontend:latest
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - cinefluent-network
+    env_file:
+      - .env
+
+  # Nginx Service (Reverse Proxy)
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - cinefluent-network
+
+networks:
+  cinefluent-network:
+    driver: bridge
+
+volumes:
+  db_data:

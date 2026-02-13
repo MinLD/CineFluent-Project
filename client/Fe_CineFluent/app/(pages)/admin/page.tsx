@@ -6,6 +6,8 @@ import CategoriesSection from "@/app/components/admin/wrappers/CategoriesSection
 import DashBoardSection from "@/app/components/admin/wrappers/DashBoardSection";
 import ManagementSkillSection from "@/app/components/admin/wrappers/ManagementSkillSection";
 
+export const dynamic = "force-dynamic";
+
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 async function AdminContentResolver({

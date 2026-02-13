@@ -8,7 +8,7 @@ const DriveAndSubtitleDemo = () => {
 
   // 1. Demo Streaming: Chỉ cần gắn link vào src
   const streamUrl = videoFileId
-    ? `http://localhost:5000/api/videos/stream/drive/${videoFileId}`
+    ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost/api"}/videos/stream/drive/${videoFileId}`
     : "";
 
   // 2. Demo Parse Subtitle
@@ -23,7 +23,7 @@ const DriveAndSubtitleDemo = () => {
     try {
       // Gọi API parse
       const response = await axios.post(
-        "http://localhost:5000/api/videos/subtitles/parse",
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost/api"}/videos/subtitles/parse`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },

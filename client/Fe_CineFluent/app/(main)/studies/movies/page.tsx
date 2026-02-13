@@ -3,6 +3,7 @@ import { SSR_Categories } from "@/app/lib/data/categories";
 import MoviePage from "@/app/components/movies/movie_page";
 import VideoFetcher from "@/app/components/fetcher_components/videoFetcher";
 import { Suspense } from "react";
+export const dynamic = "force-dynamic";
 
 export default async function page() {
   // Fetch only categories - videos will be fetched by VideoFetcher

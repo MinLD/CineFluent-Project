@@ -20,7 +20,7 @@ function AdminUpdateSkill({ setClose, token, skills, data_categories }: Props) {
   const [formData, setFormData] = useState({
     name: skills?.name || "",
     description: skills?.description || "",
-    avatar: skills?.avatar?.secure_url || "",
+    avatar: skills?.avatar_url || "",
     category_id: skills.category_id || "",
   });
   const initData = useRef({ ...formData });
@@ -102,7 +102,7 @@ function AdminUpdateSkill({ setClose, token, skills, data_categories }: Props) {
 
       return actionResult;
     },
-    null
+    null,
   );
 
   const handleChange = (name: string, value: string) => {

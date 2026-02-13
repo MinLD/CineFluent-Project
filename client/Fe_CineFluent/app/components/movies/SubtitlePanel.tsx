@@ -32,10 +32,12 @@ interface SubtitlePanelProps {
   onClose?: () => void;
   isBlurred?: boolean;
   onToggleBlur?: () => void;
+  onSeek?: (time: number) => void;
+  isExternalMovie?: boolean;
 }
 
 export function SubtitlePanel({
-  subtitles,  
+  subtitles,
   currentTime = 0,
   onSubtitleClick,
   onPracticeClick,

@@ -70,8 +70,6 @@ def seed(with_admin):
             db.session.rollback()
             click.echo(f'Lỗi khi tạo tài khoản admin: {e}')
 if __name__ == '__main__':
-    app.run(debug=True, reloader_type='watchdog', threaded=True)
-    # MỚI: Dùng socketio để chạy app
-    # allow_unsafe_werkzeug=True: Để chạy được trên môi trường Dev (localhost)
-    # print("🚀 Server đang chạy với SocketIO tại http://127.0.0.1:5000")
-    # socketio.run(app, debug=True, allow_unsafe_werkzeug=True, port=5000)
+    # Cho phép server lắng nghe trên tất cả các interface (cần thiết cho Docker)
+    print("🚀 Server đang chạy với SocketIO tại http://0.0.0.0:5000")
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)

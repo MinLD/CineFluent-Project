@@ -19,7 +19,7 @@ function AdminUpdateCategories({ setClose, token, category }: Props) {
   const [formData, setFormData] = useState({
     name: category?.name || "",
     description: category?.description || "",
-    avatar: category?.avatar?.secure_url || "",
+    avatar: category?.avatar_url || "",
   });
   const initData = useRef({ ...formData });
   const router = useRouter();
@@ -99,7 +99,7 @@ function AdminUpdateCategories({ setClose, token, category }: Props) {
 
       return actionResult;
     },
-    null
+    null,
   );
 
   const inputs = [
