@@ -23,13 +23,19 @@ def Role_required(role='admin'):
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    data_request = AuthRequest(**request.get_json())
+    req_data = request.get_json()
+    if req_data is None:
+        return error_response(message="Body is None. Check Content-Type header.", code=400, error_code="INVALID_BODY")
+
+    data_request = AuthRequest(**req_data)
     access_token, refresh_token = generate_tokens(data_request)
 
     return success_response(code=201, data={
         'access_token': access_token,
         'refresh_token': refresh_token
     }, message="Login successfully")
+
+
 @auth_bp.route('/google-login', methods=['POST'])
 def google_auth():
     data = request.json

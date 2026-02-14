@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 
 import MyLayout from "@/app/layout/index";
 import { introduction_banner } from "@/app/lib/constants/site";
-import QuickSearchCard from "@/app/components/quick_search_card";
 import WhyChooseSection from "@/app/components/why_choose_section";
 import { fadeInUp, staggerContainer } from "@/app/lib/Animation";
 import Banner from "@/app/components/banner";
@@ -17,10 +16,6 @@ function HomePages({ slots }: prop) {
     <>
       <Banner />
       <MyLayout>
-        <div className="md:hidden mt-5">
-          <QuickSearchCard />
-        </div>
-
         <HowItWork />
 
         <motion.div

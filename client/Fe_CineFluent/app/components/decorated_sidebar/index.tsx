@@ -20,6 +20,8 @@ import Logo from "@/app/components/logo";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/lib/hooks/useAuth";
 import { mainNavLinks } from "@/app/lib/constants/navigation";
+import axios from "axios";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 
 export default function SidebarWithAuth({ onClose }: { onClose: () => void }) {
   const { profile_user, isLoading } = useAuth();
@@ -155,7 +157,15 @@ export default function SidebarWithAuth({ onClose }: { onClose: () => void }) {
       <div className="border-t border-gray-100 p-3 bg-gray-50">
         {profile_user && (
           <button
-            onClick={() => setIsLoggedIn(false)} // Demo chức năng đăng xuất
+            onClick={async () => {
+              try {
+                await axios.post(`${FeApiProxyUrl}/auth/logout`);
+                window.location.href = "/";
+              } catch (error) {
+                console.error("Logout failed", error);
+                window.location.href = "/";
+              }
+            }}
             className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
           >
             <div className="flex items-center gap-3">

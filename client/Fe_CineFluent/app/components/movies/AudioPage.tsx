@@ -9,6 +9,8 @@ import {
   Volume2,
   RefreshCw,
 } from "lucide-react";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
+
 type props = {
   originalText: string;
   onClose: () => void;
@@ -120,7 +122,8 @@ const AudioPage = ({
         const base64Audio = (reader.result as string).split(",")[1];
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost/api"}/learning/test-audio`,
+          `${FeApiProxyUrl}/learning/test-audio`,
+
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

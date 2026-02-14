@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
 
           console.log(
-            "✅ Client: Phiên đăng nhập hợp lệ (hoặc đã refresh thành công)."
+            "✅ Client: Phiên đăng nhập hợp lệ (hoặc đã refresh thành công).",
           );
           router.refresh();
         } catch (error) {
@@ -65,12 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateAuth = useCallback((payload: InitialLoginProps) => {
     setToken((prev) => (prev !== payload.token ? payload.token || null : prev));
     setUserId((prev) =>
-      prev !== payload.userId ? payload.userId || null : prev
+      prev !== payload.userId ? payload.userId || null : prev,
     );
     setRoles((prev) =>
       JSON.stringify(prev) !== JSON.stringify(payload.roles)
         ? payload.roles || null
-        : prev
+        : prev,
     );
     setProfile_user(payload.profile_user);
     setIsLoading(false);
@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateAuth,
       isLoading,
     }),
-    [token, userId, roles, profile_user, updateAuth, isLoading]
+    [token, userId, roles, profile_user, updateAuth, isLoading],
   );
 
   return (

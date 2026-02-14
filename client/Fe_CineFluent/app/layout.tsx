@@ -13,7 +13,6 @@ import AntdProvider from "@/app/components/antd/AntdProvider";
 import { Suspense } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { ConfigProvider, theme } from "antd";
-import { SocketProvider } from "@/app/lib/context/SocketContext";
 import { QueryProvider } from "@/app/providers/QueryProvider";
 
 export const metadata: Metadata = {
@@ -58,7 +57,6 @@ export default async function RootLayout({
               <QueryProvider>
                 <SmoothLoadingWrapper />
                 <AuthProvider>
-                  {/* <SocketProvider> */}
                   <NavProvider>
                     <Suspense>
                       <AuthSSRInit />
@@ -67,7 +65,6 @@ export default async function RootLayout({
                     <HamburgerMenu />
                     <Toaster position="top-right" closeButton />
                   </NavProvider>
-                  {/* </SocketProvider> */}
                 </AuthProvider>
               </QueryProvider>
             </GoogleOAuthProvider>

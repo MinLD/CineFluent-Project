@@ -1,10 +1,23 @@
 import axios from "axios";
+
 const isServer = typeof window === "undefined";
-export const BeUrl = isServer
-  ? process.env.API_URL_INTERNAL || "http://backend:5000/api"
-  : process.env.NEXT_PUBLIC_API_URL || "http://localhost/api";
-export const FeUrl = process.env.NEXT_PUBLIC_FE_URL || "http://localhost";
-export const API_BASE_URL = BeUrl; // Use BeUrl consistently
+const isProd = process.env.NODE_ENV === "production";
+
+// Unified URL configuration from .env
+export const FeApiProxyUrl =
+  process.env.NEXT_PUBLIC_URL_FRONTEND_PROXY || "/apiFe";
+
+export const BeUrl = isProd
+  ? process.env.URL_BACKEND_PRODUCTION || ""
+  : isServer
+    ? process.env.URL_BACKEND_LOCAL || ""
+    : FeApiProxyUrl; // On client, always use the proxy
+
+export const FeUrl = isProd
+  ? process.env.NEXT_PUBLIC_URL_FRONTEND_PRODUCTION || ""
+  : process.env.NEXT_PUBLIC_URL_FRONTEND_LOCAL || "";
+
+export const API_BASE_URL = BeUrl;
 
 const axiosClientConfig = {
   baseURL: BeUrl,
@@ -30,7 +43,7 @@ if (typeof window !== "undefined") {
           "Token hết hạn hoặc không hợp lệ, đang tiến hành làm mới... (Client-side)",
         );
         try {
-          const res = await axios.post(`${FeUrl}/api/auth/refreshtoken`);
+          const res = await axios.post(`${FeApiProxyUrl}/auth/refreshtoken`);
           console.log("Đã làm mới token thành công:", res.data);
           const newAccessToken = res.data.access_token;
           originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;

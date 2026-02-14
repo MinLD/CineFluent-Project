@@ -4,8 +4,11 @@ import { Api_Login } from "@/app/lib/services/auth";
 
 export async function POST(request: Request) {
   try {
-    const { password, email } = await request.json();
+    const body = await request.json();
+    const { password, email } = body;
+
     const res = await Api_Login(email, password);
+
     const { access_token, refresh_token } = res.data.data;
 
     const response = NextResponse.json(res.data, {
@@ -31,17 +34,21 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error: any) {
-    console.log("Error in login proxy: ", error.response.data.response.message);
-    if (error instanceof AxiosError && error.response) {
-      return NextResponse.json(error.response.data.response, {
-        status: error.response.status,
-      });
+    // An toàn hơn khi truy xuất error.response
+    if (error instanceof AxiosError) {
+      if (error.response) {
+        return NextResponse.json(
+          error.response.data || { message: "Error from backend" },
+          {
+            status: error.response.status,
+          },
+        );
+      }
     }
 
-    console.error("Lỗi API Route:", error);
     return NextResponse.json(
-      { error: "Đã có lỗi phía máy chủ" },
-      { status: 500 }
+      { error: "Internal Proxy Error", details: error.message },
+      { status: 500 },
     );
   }
 }

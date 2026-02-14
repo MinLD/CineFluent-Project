@@ -40,7 +40,7 @@ export async function SSR_Auth() {
   } catch (error: any) {
     console.warn(
       "[SSR_Auth] Authentication error - Client will handle:",
-      error.message
+      error.message,
     );
     return { roles: null, userId: null, token: null, profile_user: null };
   }

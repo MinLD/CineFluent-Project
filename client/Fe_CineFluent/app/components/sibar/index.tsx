@@ -2,12 +2,13 @@
 import { Leaf, LogOut, LucideProps } from "lucide-react";
 import { ForwardRefExoticComponent, RefAttributes, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useAuth } from "@/app/lib/hooks/useAuth";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
+
 import axios from "axios";
 import SidebarNavList from "@/app/components/sidebar_nav_list";
 import SidebarNavSkeleton from "@/app/components/sidebar_navList_skeleton";
 import Logo from "@/app/components/logo";
-
 type Props = {
   isSidebarOpen: boolean;
   data: {
@@ -27,7 +28,7 @@ function Sibar({ isSidebarOpen, data }: Props) {
 
   const handleLogout = async () => {
     try {
-      await axios.post("/api/auth/logout");
+      await axios.post(`${FeApiProxyUrl}/auth/logout`);
       router.push("/");
       router.refresh();
       window.location.reload();

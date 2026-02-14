@@ -1,6 +1,7 @@
 import axios from "axios";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 
-const API_URL = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost/api"}/v1/external`;
+const API_URL = `${FeApiProxyUrl}/v1/external`;
 
 const getAuthHeader = () => {
   const token = localStorage.getItem("access_token");

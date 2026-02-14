@@ -4,7 +4,6 @@ import banner from "@/public/img/banner8.png";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { TypeAnimation } from "react-type-animation";
-import QuickSearchCard from "@/app/components/quick_search_card";
 
 const itemVariants = {
   hidden: { y: 20, opacity: 0 },

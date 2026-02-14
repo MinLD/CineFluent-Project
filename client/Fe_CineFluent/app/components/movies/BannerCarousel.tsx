@@ -169,8 +169,8 @@ export default function BannerCarousel() {
         ))}
       </Swiper>
 
-      {/* Thumbnails Sidebar (Bottom Right - Horizontal) */}
-      <div className="absolute z-10 w-full bottom-4 left-0 px-4 lg:px-0 lg:right-10 lg:left-auto lg:bottom-24 lg:w-[600px]">
+      {/* Thumbnails Sidebar (Bottom Right - Horizontal) - Hidden on Mobile/Tablet */}
+      <div className="hidden lg:block absolute z-10 w-full bottom-4 left-0 px-4 lg:px-0 lg:right-10 lg:left-auto lg:bottom-24 lg:w-[600px]">
         <div className="px-2">
           <Swiper
             onSwiper={setThumbsSwiper}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X, Volume2, BookOpen, Bookmark } from "lucide-react";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 
 interface QuickDictionaryModalProps {
   word: string;
@@ -33,7 +34,8 @@ export function QuickDictionaryModal({
       setError(null);
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost/api"}/learning/quick-dictionary`,
+          `${FeApiProxyUrl}/learning/quick-dictionary`,
+
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

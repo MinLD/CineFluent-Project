@@ -12,15 +12,7 @@ function HeaderBottom() {
       <div className="flex justify-between items-center h-[58px] gap-4">
         {/* Left Section (Placeholder for future Category/Filter) */}
         {/* Left Section (Placeholder for future Category/Filter) */}
-        <div className="hidden md:flex w-[140px] lg:w-[200px] flex-shrink-0">
-          <Link
-            href="/studies/external-movies"
-            className="flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium"
-          >
-            <Filter size={16} />
-            <span>Tìm Phim Mới</span>
-          </Link>
-        </div>
+        <div className="hidden md:flex w-[140px] lg:w-[200px] flex-shrink-0"></div>
 
         {/* Center Section: Search Bar */}
         <div className="flex-1 max-w-[700px] transition-all ease-in-out duration-300">

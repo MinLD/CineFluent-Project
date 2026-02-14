@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Api_Admin_User, Api_Delete_User } from "@/app/lib/services/user";
 import { I_FormUser } from "@/app/lib/types/users";
+import { BeUrl } from "@/app/lib/services/api_client";
 
 export async function createUserAction(prevState: any, formData: FormData) {
   try {
@@ -92,16 +93,13 @@ export async function updateUserAction(prevState: any, formData: FormData) {
     }
 
     // ✅ API call on server side
-    const response = await fetch(
-      `${process.env.API_URL_INTERNAL || "http://backend:5000/api"}/users/${userId}`,
-      {
-        method: "PATCH",
-        body: formData,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+    const response = await fetch(`${BeUrl}/users/${userId}`, {
+      method: "PATCH",
+      body: formData,
+      headers: {
+        Authorization: `Bearer ${token}`,
       },
-    );
+    });
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -132,16 +130,13 @@ export async function updateUserProfileAction(formData: FormData) {
     const token = formData.get("token") as string;
 
     // ✅ API call on server side
-    const response = await fetch(
-      `${process.env.API_URL_INTERNAL || "http://backend:5000/api"}/users/profile`,
-      {
-        method: "PATCH",
-        body: formData,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+    const response = await fetch(`${BeUrl}/users/profile`, {
+      method: "PATCH",
+      body: formData,
+      headers: {
+        Authorization: `Bearer ${token}`,
       },
-    );
+    });
 
     if (!response.ok) {
       const errorData = await response.json();

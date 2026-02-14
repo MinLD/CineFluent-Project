@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import axios from "axios";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 import { Ty_User } from "@/app/lib/types/users";
 
 interface ProfileState {
@@ -27,7 +28,7 @@ export const useProfileStore = create<ProfileState | any>((set) => {
     fetchProfile: async () => {
       set({ isLoading: true, error: null });
       try {
-        const response = await axios.get("/api/user/profile", {
+        const response = await axios.get(`${FeApiProxyUrl}/user/profile`, {
           // API tự lấy token từ cookie
         });
         if (response.status !== 200) {
@@ -35,7 +36,9 @@ export const useProfileStore = create<ProfileState | any>((set) => {
             // Tự động refresh nếu 401
             await state.refreshToken();
             // Fetch lại sau refresh
-            const retryResponse = await axios.get("/api/user/profile");
+            const retryResponse = await axios.get(
+              `${FeApiProxyUrl}/user/profile`,
+            );
             if (retryResponse.status !== 200) {
               throw new Error("Failed to fetch profile after refresh");
             }
@@ -51,7 +54,11 @@ export const useProfileStore = create<ProfileState | any>((set) => {
     },
     refreshToken: async () => {
       try {
-        const response = await axios.post("/api/auth/refreshtoken", {});
+        const response = await axios.post(
+          `${FeApiProxyUrl}/auth/refreshtoken`,
+          {},
+        );
+
         if (response.status !== 200) {
           throw new Error("Refresh token failed");
         }

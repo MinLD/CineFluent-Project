@@ -13,8 +13,6 @@ import { I_Subtitle } from "@/app/lib/types/video";
 import { ArrowLeft, Flag } from "lucide-react";
 import Link from "next/link";
 
-import ExternalVideoPlayer from "./ExternalVideoPlayer";
-
 interface VideoPlayerWrapperProps {
   video: {
     id: number;
@@ -28,11 +26,6 @@ interface VideoPlayerWrapperProps {
 }
 
 export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
-  // External Video Player (VidSrc)
-  if (video.source_type === "external") {
-    return <ExternalVideoPlayer videoId={video.id} />;
-  }
-
   const isDrive = video.source_type === "drive";
   // const isDrive = true; // FORCE DRIVE FOR TESTING
   const driveVideoRef = useRef<HTMLVideoElement>(null);

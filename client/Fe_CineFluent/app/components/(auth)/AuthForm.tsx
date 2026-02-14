@@ -13,6 +13,7 @@ import ForgotPasswordForm from "@/app/components/forgot_password_form";
 import Logo from "@/app/components/logo";
 import { useRouter } from "next/navigation";
 import { GoogleLogin } from "@react-oauth/google";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 
 type FormData = {
   email: string;
@@ -67,17 +68,16 @@ export default function Login() {
   const handleGoogleSuccess = async (credentialResponse: any) => {
     try {
       const { credential } = credentialResponse;
-      const res = await axios.post("/api/auth/google-login", {
+      const res = await axios.post(`${FeApiProxyUrl}/auth/google-login`, {
         credential,
       });
-
       console.log("Login Success:", res.data);
       toast.success("Đăng nhập Google thành công");
       window.location.href = "/";
     } catch (error: any) {
       console.error("Login Failed:", error);
       toast.error(
-        error.response?.data?.message || "Đăng nhập Google thất bại!"
+        error.response?.data?.message || "Đăng nhập Google thất bại!",
       );
     }
   };
@@ -119,14 +119,15 @@ export default function Login() {
         console.log(values);
         try {
           const res = await axios.post(
-            "/api/auth/login",
+            `${FeApiProxyUrl}/auth/login`,
+
             {
               email: values.email,
               password: values.password,
             },
             {
               headers: { "Content-Type": "application/json" },
-            }
+            },
           );
 
           toast.success(res.data.message || "Đăng nhập thành công");
@@ -160,7 +161,7 @@ export default function Login() {
           const res = await Api_Register(
             fullName || "",
             values.email,
-            values.password
+            values.password,
           );
           console.log(res);
           toast.success(res.data.message || "Đăng ký thành công");
@@ -169,7 +170,7 @@ export default function Login() {
           console.log(err.response.data.response.message);
           if (err instanceof AxiosError && err.response) {
             toast.error(
-              err.response.data.response.message || "Đăng ký thất bại"
+              err.response.data.response.message || "Đăng ký thất bại",
             );
           } else {
             toast.error("Lỗi không xác định, vui lòng thử lại.");

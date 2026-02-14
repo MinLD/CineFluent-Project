@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { Ty_User } from "@/app/lib/types/users";
 import { AnimatePresence, motion } from "framer-motion";
+import axios from "axios";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 
 export default function UserMenu({ user }: { user: Ty_User }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -144,9 +146,14 @@ export default function UserMenu({ user }: { user: Ty_User }) {
             {/* Nhóm cài đặt & Logout */}
             <div className="p-2 pt-0 space-y-0.5">
               <button
-                onClick={() => {
-                  console.log("Logout logic here");
-                  // Gọi hàm logout của bạn ở đây
+                onClick={async () => {
+                  try {
+                    await axios.post(`${FeApiProxyUrl}/auth/logout`);
+                    window.location.href = "/"; // Force reload to clear state
+                  } catch (error) {
+                    console.error("Logout failed", error);
+                    window.location.href = "/"; // Redirect anyway
+                  }
                 }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-all duration-200 group"
               >
