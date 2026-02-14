@@ -7,10 +7,12 @@ const isProd = process.env.NODE_ENV === "production";
 export const FeApiProxyUrl =
   process.env.NEXT_PUBLIC_URL_FRONTEND_PROXY || "/apiFe";
 
-export const BeUrl = isProd
-  ? process.env.URL_BACKEND_PRODUCTION || ""
-  : isServer
-    ? process.env.URL_BACKEND_LOCAL || ""
+export const BeUrl = isServer
+  ? process.env.URL_BACKEND_INTERNAL ||
+    process.env.URL_BACKEND_LOCAL ||
+    "http://127.0.0.1:5000/api"
+  : isProd
+    ? process.env.URL_BACKEND_PRODUCTION || ""
     : FeApiProxyUrl; // On client, always use the proxy
 
 export const FeUrl = isProd

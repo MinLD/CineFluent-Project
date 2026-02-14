@@ -28,8 +28,9 @@ jobs:
           script: |
             echo "--- Deploying Frontend ---"
             cd /hope/fe
-            rm -rf Fe_HopeVn_Version
-            git clone https://github.com/MinLD/Fe_HopeVn_Version.git
+            rm -rf CineFluent-Project
+            git clone https://github.com/MinLD/CineFluent-Project.git
+            cd CineFluent-Project
             docker-compose up -d --build
             docker restart nginx
             echo "Backend deployed successfully!"
