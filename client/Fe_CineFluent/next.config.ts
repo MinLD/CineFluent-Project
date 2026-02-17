@@ -23,14 +23,14 @@ const nextConfig: NextConfig = {
   async rewrites() {
     const isProd = process.env.NODE_ENV === "production";
     const internalUrl = isProd
-      ? process.env.URL_BACKEND_PRODUCTION || "https://purpleduck.io.vn/api"
+      ? process.env.URL_BACKEND_INTERNAL || "http://backend:5000/api"
       : process.env.URL_BACKEND_LOCAL || "http://127.0.0.1:5000/api";
 
     const proxyPrefix = process.env.NEXT_PUBLIC_URL_FRONTEND_PROXY || "/apiFe";
 
     return [
       {
-        source: `/${proxyPrefix}/:path*`,
+        source: `${proxyPrefix}/:path*`,
         destination: `${internalUrl}/:path*`,
       },
     ];
