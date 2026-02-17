@@ -12,6 +12,7 @@ import AdminViewUser from "@/app/components/admin/admin_view_user";
 import ModalConfirm from "@/app/components/modal_confirm";
 import { toast } from "sonner";
 import Modal_Show from "@/app/components/modal_show";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 
 type Props = {
   data_users: I_data_users;
@@ -39,7 +40,9 @@ function Users_Management({ data_users }: Props) {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/users/search?keyword=${searchQuery}`);
+      const response = await fetch(
+        `${FeApiProxyUrl}/users/search?keyword=${searchQuery}`,
+      );
       if (!response.ok) {
         throw new Error("Failed to fetch users");
       }
@@ -57,7 +60,7 @@ function Users_Management({ data_users }: Props) {
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/users/${id}`, {
+      const res = await fetch(`${FeApiProxyUrl}/users/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -86,8 +89,8 @@ function Users_Management({ data_users }: Props) {
     setLoading(true);
     try {
       const url = searchQuery
-        ? `/api/users/search?keyword=${searchQuery}&page=${page}&per_page=4`
-        : `/api/users?page=${page}&per_page=4`;
+        ? `${FeApiProxyUrl}/users/search?keyword=${searchQuery}&page=${page}&per_page=4`
+        : `${FeApiProxyUrl}/users?page=${page}&per_page=4`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch users");

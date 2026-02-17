@@ -10,6 +10,7 @@ import { QuickDictionaryModal } from "./QuickDictionaryModal";
 
 import { DictationModal } from "./DictationModal";
 import { I_Subtitle } from "@/app/lib/types/video";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 import { ArrowLeft, Flag } from "lucide-react";
 import Link from "next/link";
 
@@ -599,7 +600,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
                 ref={driveVideoRef}
                 src={
                   isDrive
-                    ? `/api/videos/stream/drive/${video.source_url}`
+                    ? `${FeApiProxyUrl}/videos/stream/drive/${video.source_url}`
                     : video.source_url
                 }
                 className="w-full h-full"

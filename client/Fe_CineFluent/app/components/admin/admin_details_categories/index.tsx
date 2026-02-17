@@ -28,6 +28,7 @@ import AdminUpdateSkill from "@/app/components/admin/admin_update_skill";
 import { deleteSkillAction } from "@/app/lib/actions/categories";
 import { useRouter } from "next/navigation";
 import ModalConfirm from "@/app/components/modal_confirm";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 
 type Props = {
   data_skills: I_skills_data;
@@ -58,7 +59,7 @@ function SkillManagement({ data_skills, category_id, data_categories }: Props) {
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/skills/search?categoryId=${category_id}&keyword=${searchQuery}&page=1&per_page=3`,
+        `/${FeApiProxyUrl}/skills/search?categoryId=${category_id}&keyword=${searchQuery}&page=1&per_page=3`,
       );
       if (!response.ok) {
         throw new Error("Failed to fetch categories");
@@ -103,8 +104,8 @@ function SkillManagement({ data_skills, category_id, data_categories }: Props) {
     setLoading(true);
     try {
       const url = searchQuery
-        ? `/api/categories/search?keyword=${searchQuery}&page=${page}&per_page=3`
-        : `/api/categories/${category_id}/skills?page=${page}&per_page=3`;
+        ? `/${FeApiProxyUrl}/categories/search?keyword=${searchQuery}&page=${page}&per_page=3`
+        : `/${FeApiProxyUrl}/categories/${category_id}/skills?page=${page}&per_page=3`;
       const response = await fetch(url);
       console.log("Fetching page:", url);
       if (!response.ok) {

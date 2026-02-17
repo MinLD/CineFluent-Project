@@ -6,18 +6,20 @@ const isProd = process.env.NODE_ENV === "production";
 // Unified URL configuration from .env
 export const FeApiProxyUrl =
   process.env.NEXT_PUBLIC_URL_FRONTEND_PROXY || "/apiFe";
-
+// --- 1. Cấu hình Backend URL (Dùng cho Server-Side Rendering) ---
+// Thứ tự ưu tiên: Docker Internal -> Biến môi trường Local -> Mặc định Localhost
 export const BeUrl = isServer
-  ? process.env.URL_BACKEND_INTERNAL ||
-    process.env.URL_BACKEND_LOCAL ||
-    "http://127.0.0.1:5000/api"
+  ? process.env.URL_BACKEND_INTERNAL || // 1. Ưu tiên đường dẫn nội bộ Docker (khi chạy trên VPS)
+    process.env.URL_BACKEND_LOCAL || // 2. Nếu không có, dùng biến môi trường Local
+    "http://127.0.0.1:5000/api" // 3. Cuối cùng fallback về localhost mặc định
   : isProd
-    ? process.env.URL_BACKEND_PRODUCTION || ""
-    : FeApiProxyUrl; // On client, always use the proxy
+    ? "/api" // Production Client: Dùng đường dẫn tương đối (Nginx Proxy tự xử lý)
+    : FeApiProxyUrl; // Development Client: Đi qua Proxy của Next.js (/apiFe)
 
+// --- 2. Cấu hình Frontend URL (Dùng cho SEO, Redirect, Link chia sẻ) ---
 export const FeUrl = isProd
-  ? process.env.NEXT_PUBLIC_URL_FRONTEND_PRODUCTION || ""
-  : process.env.NEXT_PUBLIC_URL_FRONTEND_LOCAL || "";
+  ? process.env.NEXT_PUBLIC_URL_FRONTEND_PRODUCTION || "" // Production: Domain thật (https://...)
+  : process.env.NEXT_PUBLIC_URL_FRONTEND_LOCAL || "http://localhost:3000"; // Dev: Localhost
 
 export const API_BASE_URL = BeUrl;
 

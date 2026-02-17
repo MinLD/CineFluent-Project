@@ -22,6 +22,7 @@ import Modal_Show from "@/app/components/modal_show";
 import AdminUpdateCategories from "@/app/components/admin/admin_update_categories";
 import AdminDetailsCategories from "@/app/components/admin/admin_details_categories";
 import Link from "next/link";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 
 type Props = {
   data_categories: I_categories_data;
@@ -54,7 +55,7 @@ function CategoriesManagement({ data_categories }: Props) {
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/categories/search?keyword=${searchQuery}&page=1&per_page=3`,
+        `${FeApiProxyUrl}/categories/search?keyword=${searchQuery}&page=1&per_page=3`,
       );
       if (!response.ok) {
         throw new Error("Failed to fetch categories");
@@ -74,7 +75,7 @@ function CategoriesManagement({ data_categories }: Props) {
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/categories/${id}`, {
+      const res = await fetch(`${FeApiProxyUrl}/categories/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -101,8 +102,8 @@ function CategoriesManagement({ data_categories }: Props) {
     setLoading(true);
     try {
       const url = searchQuery
-        ? `/api/categories/search?keyword=${searchQuery}&page=${page}&per_page=3`
-        : `/api/categories?page=${page}&per_page=3`;
+        ? `${FeApiProxyUrl}/categories/search?keyword=${searchQuery}&page=${page}&per_page=3`
+        : `${FeApiProxyUrl}/categories?page=${page}&per_page=3`;
       const response = await fetch(url);
       console.log("Fetching page:", url);
       if (!response.ok) {
