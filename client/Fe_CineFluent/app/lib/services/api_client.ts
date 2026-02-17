@@ -16,6 +16,21 @@ export const BeUrl = isServer
     ? "/api" // Production Client: Dùng đường dẫn tương đối (Nginx Proxy tự xử lý)
     : FeApiProxyUrl; // Development Client: Đi qua Proxy của Next.js (/apiFe)
 
+if (isServer) {
+  console.log(
+    "----------------------------------------------------------------",
+  );
+  console.log("DEBUG API CLIENT (SERVER SIDE):");
+  console.log("NODE_ENV:", process.env.NODE_ENV);
+  console.log("URL_BACKEND_INTERNAL (env):", process.env.URL_BACKEND_INTERNAL);
+  console.log("URL_BACKEND_LOCAL (env):", process.env.URL_BACKEND_LOCAL);
+  console.log("FINAL BeUrl:", BeUrl);
+  console.log("FINAL FeApiProxyUrl:", FeApiProxyUrl);
+  console.log(
+    "----------------------------------------------------------------",
+  );
+}
+
 // --- 2. Cấu hình Frontend URL (Dùng cho SEO, Redirect, Link chia sẻ) ---
 export const FeUrl = isProd
   ? process.env.NEXT_PUBLIC_URL_FRONTEND_PRODUCTION || "" // Production: Domain thật (https://...)
