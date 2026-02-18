@@ -9,8 +9,6 @@ import requests
 from google.auth.transport.requests import Request
 
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
-# Expecting service-account.json in app/utils
-# Use absolute path to avoid CWD issues
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'utils', 'service-account.json')
 
@@ -79,7 +77,7 @@ def stream_file_content(file_id, start_byte, end_byte, chunk_size=None):
             if response.status_code in [200, 206]:
                 # Yield small chunks (32KB) directly to client as they arrive
                 # This drastically reduces TTFB (Time To First Byte)
-                for chunk in response.iter_content(chunk_size=32*1024):
+                for chunk in response.iter_content(chunk_size=256*1024):
                     if chunk:
                         yield chunk
             else:
