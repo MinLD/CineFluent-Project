@@ -100,7 +100,7 @@ def generate(file_id, start, end):
         print(f"[ERROR] Stream failed: {e}")
 
 
-@video_bp.route('/stream/drive/<file_id>')
+@video_bp.route('/stream/drive/<file_id>', strict_slashes=False)
 def stream_drive_video(file_id):
     """
     Hỗ trợ cả Production (Nginx Offloading) và Local (Flask Direct Stream).

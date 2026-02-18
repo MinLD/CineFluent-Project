@@ -1,7 +1,6 @@
 services:
-  # Database Service
   db:
-    image: mysql:8.0 # User requested 9.6.0 but it doesn't exist for MySQL to my knowledge. 8.0 is standard.
+    image: mysql:8.0
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -15,7 +14,6 @@ services:
     env_file:
       - .env
 
-  # Backend Service (Flask)
   backend:
     build:
       context: ./server/be_flask_cinefluent
@@ -34,7 +32,6 @@ services:
     env_file:
       - .env
 
-  # Frontend Service (Next.js)
   frontend:
     build:
       context: ./client/Fe_CineFluent
@@ -52,7 +49,6 @@ services:
     env_file:
       - .env
 
-  # Nginx Service (Reverse Proxy)
   nginx:
     build:
       context: ./nginx
