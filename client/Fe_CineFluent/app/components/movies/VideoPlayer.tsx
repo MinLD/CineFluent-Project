@@ -38,7 +38,7 @@ export function VideoPlayer({
         <div className="aspect-video">
           <video
             src={video.source_url}
-            controls
+            controls={false}
             className="w-full h-full"
             onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
             autoPlay

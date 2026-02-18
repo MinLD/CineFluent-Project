@@ -60,7 +60,7 @@ def get_detail(slug: str):
     return success_response(data=res_data)
 
 @video_bp.route('/<int:video_id>/subtitles', methods=['GET'])
-def get_subtitles(video_id):
+def get_subtitles(video_id, ordered_subs=None):
     """
     Lấy danh sách phụ đề của một video theo ID.
     Dùng cho ExternalVideoPlayer khi load sub.
@@ -85,7 +85,7 @@ def stream_drive_video(file_id):
     # Get file metadata to know size
     metadata = get_file_metadata(file_id)
     if not metadata:
-        return error_response("File not found or unaccessible", 404)
+        return error_response("Video not found", 404)
         
     file_size = int(metadata.get('size', 0))
     mime_type = metadata.get('mimeType', 'video/mp4')
@@ -107,21 +107,20 @@ def stream_drive_video(file_id):
     
     # Stream content generator
     def generate():
-        # Stream in chunks of 1MB or similar, but stream_file_content handles the range
-        # Google Drive API 'get_media' with range returns the whole range.
-        # If the browser requests a huge range, we might want to limit it or just proxy it.
-        # For now, let's proxy the requested range.
+
         stream = stream_file_content(file_id, byte1, byte2)
         if stream:
             for chunk in stream:
                 yield chunk
+        else:
+            return
             
     # Response
     resp = Response(stream_with_context(generate()), 
                     status=206, 
                     mimetype=mime_type, 
                     direct_passthrough=True)
-    
+    resp.headers.add('Cache-Control', 'no-cache')
     resp.headers.add('Content-Range', f'bytes {byte1}-{byte2}/{file_size}')
     resp.headers.add('Accept-Ranges', 'bytes')
     resp.headers.add('Content-Length', str(length))

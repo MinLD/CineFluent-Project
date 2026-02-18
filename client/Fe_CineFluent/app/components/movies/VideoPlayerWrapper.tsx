@@ -604,7 +604,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
                     : video.source_url
                 }
                 className="w-full h-full"
-                controls={true} // Custom controls only
+                controls={false} // Custom controls only
                 playsInline
               />
             </div>
