@@ -20,6 +20,9 @@ services:
     build:
       context: ./server/be_flask_cinefluent
       dockerfile: Dockerfile
+    volumes:
+      - ./.env:/app/.env
+      - ./server/be_flask_cinefluent/app/utils/service-account.json:/app/app/utils/service-account.json
     image: minld/cinefluent-backend:latest
     restart: always
     ports:
@@ -54,6 +57,9 @@ services:
     build:
       context: ./nginx
       dockerfile: Dockerfile
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - nginx_cache:/var/cache/nginx
     restart: always
     ports:
       - "80:80"
@@ -69,3 +75,4 @@ networks:
 
 volumes:
   db_data:
+  nginx_cache:

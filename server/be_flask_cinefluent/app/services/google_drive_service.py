@@ -11,25 +11,44 @@ from google.auth.transport.requests import Request
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'utils', 'service-account.json')
+# Biến toàn cục để lưu trữ service đã khởi tạo (Singleton)
+_drive_service_instance = None
+
 
 def get_drive_service():
-    """Authenticates and returns the Google Drive service."""
+    """
+    Khởi tạo và trả về Google Drive service.
+    Sử dụng cơ chế Singleton để không phải đọc file JSON và xác thực lại nhiều lần.
+    """
+    global _drive_service_instance
+
+    # Nếu đã có instance và token còn hạn, trả về luôn
+    if _drive_service_instance is not None:
+        return _drive_service_instance
+
     creds = None
+    # 1. Kiểm tra file Service Account
     if os.path.exists(SERVICE_ACCOUNT_FILE):
         creds = service_account.Credentials.from_service_account_file(
             SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     else:
-        # Fallback to default credentials if no file found (e.g. cloud run)
-        # But for this use case, we strongly expect the json file.
-        print(f"[{__name__}] Warning: {SERVICE_ACCOUNT_FILE} not found.")
+        print(f"[ERROR] Service Account file không tồn tại tại: {SERVICE_ACCOUNT_FILE}")
         return None
 
     try:
+        # 2. Build service
         service = build('drive', 'v3', credentials=creds)
-        service._creds = creds # Attach creds to service for token extraction
-        return service
+
+        # 3. Đính kèm creds vào service để các hàm khác có thể gọi creds.refresh()
+        service._creds = creds
+
+        # 4. Lưu vào biến global
+        _drive_service_instance = service
+        print("[SUCCESS] Google Drive Service initialized successfully.")
+        return _drive_service_instance
+
     except Exception as e:
-        print(f"[{__name__}] Error building Drive service: {e}")
+        print(f"[ERROR] Không thể khởi tạo Drive service: {e}")
         return None
 
 def get_file_metadata(file_id):

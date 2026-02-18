@@ -5,6 +5,9 @@ from ..services.video_service import import_youtube_video, get_all_videos, delet
 from ..schemas.video_schema import VideoSchema, VideoDetailSchema, SubtitleSchema
 from ..models.models_model import Video, Subtitle
 from ..extensions import db
+from google.auth.transport.requests import Request
+import requests
+import os
 video_bp = Blueprint('api/videos', __name__)
 
 
@@ -72,60 +75,97 @@ def get_subtitles(video_id, ordered_subs=None):
     return success_response(data=SubtitleSchema(many=True).dump(ordered_subs))
 
 from flask import Response, stream_with_context
-from app.services.google_drive_service import stream_file_content, get_file_metadata
+from app.services.google_drive_service import stream_file_content, get_file_metadata, get_drive_service
 import re
 
-@video_bp.route('/stream/drive/<file_id>', methods=['GET'])
+drive_service = get_drive_service()
+def generate(file_id, start, end):
+    try:
+        creds = drive_service._creds
+        if not creds.valid:
+            creds.refresh(Request())
+
+        url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
+        headers = {"Authorization": f"Bearer {creds.token}", "Range": f"bytes={start}-{end}"}
+
+        # Sử dụng session để giữ kết nối (Keep-Alive) giúp nhanh hơn
+        with requests.Session().get(url, headers=headers, stream=True, timeout=10) as r:
+            for chunk in r.iter_content(chunk_size=512 * 1024):  # 512KB
+                if chunk:
+                    yield chunk
+    except (ConnectionResetError, StopIteration):
+        # Đây là chỗ xử lý lỗi 10054 lặng lẽ
+        print("[INFO] Stream interrupted by user (seeking/closing).")
+    except Exception as e:
+        print(f"[ERROR] Stream failed: {e}")
+
+
+@video_bp.route('/stream/drive/<file_id>')
 def stream_drive_video(file_id):
     """
-    Stream video directly from Google Drive with Range support.
+    Hỗ trợ cả Production (Nginx Offloading) và Local (Flask Direct Stream).
     """
-    range_header = request.headers.get('Range', None)
-    
-    # Get file metadata to know size
+    # 1. Lấy Token và Metadata (Sử dụng Singleton đã cấu hình)
+    service = get_drive_service()
+    if not service:
+        return {"error": "Drive service not initialized"}, 500
+
+    creds = service._creds
+    if not creds.valid:
+        creds.refresh(Request())
+
     metadata = get_file_metadata(file_id)
     if not metadata:
-        return error_response("Video not found", 404)
-        
+        return {"error": "Video not found"}, 404
+
     file_size = int(metadata.get('size', 0))
     mime_type = metadata.get('mimeType', 'video/mp4')
-    print(f"[DEBUG] VideoController - Stream ID: {file_id} | Mime: {mime_type}")
-    
-    byte1, byte2 = 0, None
-    if range_header:
-        match = re.search(r'bytes=(\d+)-(\d*)', range_header)
-        if match:
-            groups = match.groups()
-            byte1 = int(groups[0])
-            if groups[1]:
-                byte2 = int(groups[1])
-    
-    if byte2 is None:
-        byte2 = file_size - 1
-        
-    length = byte2 - byte1 + 1
-    
-    # Stream content generator
-    def generate():
+    file_name = metadata.get('name', 'video.mp4')
+    google_drive_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
 
-        stream = stream_file_content(file_id, byte1, byte2)
-        if stream:
-            for chunk in stream:
-                yield chunk
-        else:
-            return
-            
-    # Response
-    resp = Response(stream_with_context(generate()), 
-                    status=206, 
-                    mimetype=mime_type, 
-                    direct_passthrough=True)
-    resp.headers.add('Cache-Control', 'no-cache')
-    resp.headers.add('Content-Range', f'bytes {byte1}-{byte2}/{file_size}')
-    resp.headers.add('Accept-Ranges', 'bytes')
-    resp.headers.add('Content-Length', str(length))
-    
-    return resp
+    # 2. KIỂM TRA MÔI TRƯỜNG: Nếu có Header X-Accel-Mapping hoặc đang chạy qua Nginx
+    # Thường thì trên Production chúng ta sẽ set một biến môi trường FLASK_ENV
+    is_production = os.getenv('FLASK_ENV') == 'production'
+
+    if is_production:
+        # --- PHƯƠNG ÁN PRODUCTION: Giao việc cho Nginx ---
+        response = Response(None)
+        response.headers['X-Accel-Redirect'] = '/internal_drive_stream/'
+        response.headers['X-Video-Url'] = google_drive_url
+        response.headers['Authorization'] = f"Bearer {creds.token}"
+        response.headers['Content-Type'] = mime_type
+        response.headers['Content-Disposition'] = f"inline; filename=\"{file_name}\""
+        # Nginx Slice Module sẽ tự xử lý Range Header dựa trên cấu hình 1MB của bạn
+        return response
+
+    else:
+        # --- PHƯƠNG ÁN LOCAL: Flask tự stream để bạn coi được phim ---
+        range_header = request.headers.get('Range', None)
+        byte1, byte2 = 0, None
+
+        if range_header:
+            match = re.search(r'bytes=(\d+)-(\d*)', range_header)
+            if match:
+                byte1 = int(match.group(1))
+                if match.group(2):
+                    byte2 = int(match.group(2))
+
+        if byte2 is None:
+            byte2 = file_size - 1
+
+        length = byte2 - byte1 + 1
+
+        # Trả về Response stream trực tiếp (dùng hàm generate bạn đã viết)
+        resp = Response(
+            stream_with_context(generate(file_id, byte1, byte2)),
+            status=206,
+            mimetype=mime_type,
+            direct_passthrough=True
+        )
+        resp.headers.add('Content-Range', f'bytes {byte1}-{byte2}/{file_size}')
+        resp.headers.add('Accept-Ranges', 'bytes')
+        resp.headers.add('Content-Length', str(length))
+        return resp
 
 @video_bp.route('/subtitles/parse', methods=['POST'])
 def parse_subtitle_file():
