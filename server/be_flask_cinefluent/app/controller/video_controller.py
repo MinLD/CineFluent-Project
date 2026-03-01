@@ -257,11 +257,13 @@ def stream_drive_video(file_id):
     if is_production:
         # --- PHƯƠNG ÁN PRODUCTION: Giao việc cho Nginx ---
         response = Response(None)
-        # Sử dụng URL trỏ đích /internal_drive_stream/<file_id>
-        response.headers['X-Accel-Redirect'] = f'/internal_drive_stream/{file_id}'
         
-        # Không cần X-Video-Url nữa vì Nginx tự tạo
-        response.headers['X-Google-Token'] = f"Bearer {creds.token}"
+        # Nginx X-Accel-Redirect sẽ làm trống Header của Flask sau lệnh internal
+        # Nên cách an toàn nhất là truyền thẳng Token qua Query String
+        import urllib.parse
+        encoded_token = urllib.parse.quote(creds.token)
+        response.headers['X-Accel-Redirect'] = f'/internal_drive_stream/{file_id}?access_token={encoded_token}'
+        
         response.headers['Content-Type'] = mime_type
         response.headers['Content-Disposition'] = f"inline; filename=\"{file_name}\""
         response.headers['X-Streaming-By'] = "Nginx-Accel"
