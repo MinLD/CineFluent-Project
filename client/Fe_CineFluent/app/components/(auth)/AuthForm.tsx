@@ -73,7 +73,7 @@ export default function Login() {
       });
       console.log("Login Success:", res.data);
       toast.success("Đăng nhập Google thành công");
-      // window.location.href = "/";
+      window.location.href = "/";
     } catch (error: any) {
       console.error("Login Failed:", error);
       toast.error(
@@ -131,7 +131,7 @@ export default function Login() {
           );
 
           toast.success(res.data.message || "Đăng nhập thành công");
-          // window.location.href = "/";
+          window.location.href = "/";
         } catch (err: any) {
           console.error("Lỗi khi đăng nhập:", err);
 
