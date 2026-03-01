@@ -134,9 +134,9 @@ export default function UserMenu({ user }: { user: Ty_User }) {
                 onClick={() => setIsOpen(false)}
               />
               <MenuItem
-                href="/my-courses"
+                href="/flashcards"
                 icon={<BookOpen size={18} />}
-                label="Flashcards"
+                label="Học Flashcards"
                 onClick={() => setIsOpen(false)}
               />
             </div>

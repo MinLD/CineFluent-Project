@@ -153,7 +153,7 @@ export function CustomVideoControls({
   }, [isDragging, duration, onSeek]);
 
   return (
-    <div className="bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 pb-6 pt-12 relative z-[11]">
+    <div className="bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2 sm:p-4 pb-4 sm:pb-6 pt-10 sm:pt-12 relative z-[11]">
       {/* Progress Bar */}
       <div
         id="progress-bar"
@@ -170,22 +170,22 @@ export function CustomVideoControls({
       </div>
 
       {/* Controls Bar */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-2 sm:gap-4">
         {/* Left: Play/Pause + Time */}
         <div className="flex items-center gap-3">
           <button
             onClick={onPlayPause}
-            className="text-white hover:text-blue-400 transition-colors p-2 hover:bg-white/10 rounded-full"
+            className="text-white hover:text-blue-400 transition-colors p-1.5 sm:p-2 hover:bg-white/10 rounded-full"
             aria-label={isPlaying ? "Pause" : "Play"}
           >
             {isPlaying ? (
-              <Pause className="w-6 h-6" />
+              <Pause className="w-5 h-5 sm:w-6 sm:h-6" />
             ) : (
-              <Play className="w-6 h-6" />
+              <Play className="w-5 h-5 sm:w-6 sm:h-6" />
             )}
           </button>
 
-          <span className="text-white text-sm font-medium">
+          <span className="text-white text-xs sm:text-sm font-medium">
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
         </div>
@@ -209,13 +209,13 @@ export function CustomVideoControls({
             >
               <button
                 onClick={() => onVolumeChange(volume > 0 ? 0 : 100)}
-                className="text-white hover:text-blue-400 transition-colors p-2 rounded-full"
+                className="text-white hover:text-blue-400 transition-colors p-1.5 sm:p-2 rounded-full"
                 aria-label={volume > 0 ? "Mute" : "Unmute"}
               >
                 {volume > 0 ? (
-                  <Volume2 className="w-5 h-5" />
+                  <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />
                 ) : (
-                  <VolumeX className="w-5 h-5" />
+                  <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </button>
 
@@ -243,7 +243,7 @@ export function CustomVideoControls({
                 setShowSettingsMenu(false);
                 setShowVolumeSlider(false);
               }}
-              className="text-white hover:text-blue-400 transition-colors px-3 py-1.5 hover:bg-white/10 rounded-lg text-sm font-medium"
+              className="text-white hover:text-blue-400 transition-colors px-2 py-1 sm:px-3 sm:py-1.5 hover:bg-white/10 rounded-lg text-xs sm:text-sm font-medium"
               aria-label="Playback speed"
             >
               {playbackRate}x
@@ -280,10 +280,10 @@ export function CustomVideoControls({
                 setShowSpeedMenu(false);
                 setShowVolumeSlider(false);
               }}
-              className="text-white hover:text-blue-400 transition-colors p-2 hover:bg-white/10 rounded-full"
+              className="text-white hover:text-blue-400 transition-colors p-1.5 sm:p-2 hover:bg-white/10 rounded-full"
               aria-label="Settings"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
             {/* Settings Menu */}
@@ -293,14 +293,14 @@ export function CustomVideoControls({
                 {activeMenu === "main" && (
                   <div className="py-1 sm:py-2">
                     {/* Subtitle Mode */}
-                    <div className="px-3 sm:px-4 py-1.5 sm:py-2 flex items-center justify-between border-b border-white/10 mb-1 sm:mb-2 gap-2">
-                      <span className="text-xs sm:text-sm font-medium text-white whitespace-nowrap">
+                    <div className="px-2 sm:px-4 py-1 sm:py-2 flex items-center justify-between border-b border-white/10 mb-1 sm:mb-2 gap-1 sm:gap-2">
+                      <span className="text-[10px] sm:text-sm font-medium text-white whitespace-nowrap">
                         Phụ đề
                       </span>
                       <div className="flex bg-white/10 rounded overflow-hidden">
                         <button
                           onClick={() => onSubtitleModeChange("both")}
-                          className={`px-2 sm:px-3 py-1 text-[10px] sm:text-xs transition-colors ${
+                          className={`px-1.5 sm:px-3 py-0.5 sm:py-1 text-[9px] sm:text-xs transition-colors ${
                             subtitleMode === "both"
                               ? "bg-blue-600 text-white"
                               : "text-gray-300 hover:bg-white/10"
@@ -310,7 +310,7 @@ export function CustomVideoControls({
                         </button>
                         <button
                           onClick={() => onSubtitleModeChange("en")}
-                          className={`px-2 sm:px-3 py-1 text-[10px] sm:text-xs transition-colors ${
+                          className={`px-1.5 sm:px-3 py-0.5 sm:py-1 text-[9px] sm:text-xs transition-colors ${
                             subtitleMode === "en"
                               ? "bg-blue-600 text-white"
                               : "text-gray-300 hover:bg-white/10"
@@ -320,7 +320,7 @@ export function CustomVideoControls({
                         </button>
                         <button
                           onClick={() => onSubtitleModeChange("off")}
-                          className={`px-2 sm:px-3 py-1 text-[10px] sm:text-xs transition-colors ${
+                          className={`px-1.5 sm:px-3 py-0.5 sm:py-1 text-[9px] sm:text-xs transition-colors ${
                             subtitleMode === "off"
                               ? "bg-blue-600 text-white"
                               : "text-gray-300 hover:bg-white/10"
@@ -334,9 +334,9 @@ export function CustomVideoControls({
                     {/* Quality */}
                     <button
                       onClick={() => setActiveMenu("quality")}
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
+                      className="w-full px-2 sm:px-4 py-1.5 sm:py-3 text-[10px] sm:text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
                     >
-                      <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="flex items-center gap-1.5 sm:gap-3">
                         <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
                         <span>Hình ảnh</span>
                       </div>
@@ -353,9 +353,9 @@ export function CustomVideoControls({
                       onClick={() =>
                         onShowSubtitlePanelChange(!showSubtitlePanel)
                       }
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
+                      className="w-full px-2 sm:px-4 py-1.5 sm:py-3 text-[10px] sm:text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
                     >
-                      <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="flex items-center gap-1.5 sm:gap-3">
                         <List className="w-3 h-3 sm:w-4 sm:h-4" />
                         <span>DS phụ đề</span>
                       </div>
@@ -381,7 +381,7 @@ export function CustomVideoControls({
                   <div className="py-1 sm:py-2">
                     <button
                       onClick={() => setActiveMenu("main")}
-                      className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-left text-gray-300 hover:text-white hover:bg-white/10 flex items-center gap-2 border-b border-white/10 mb-1"
+                      className="w-full px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm text-left text-gray-300 hover:text-white hover:bg-white/10 flex items-center gap-1.5 sm:gap-2 border-b border-white/10 mb-0.5 sm:mb-1"
                     >
                       <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
                       Quay lại
@@ -395,7 +395,7 @@ export function CustomVideoControls({
                             onQualityChange?.(q);
                             setShowSettingsMenu(false);
                           }}
-                          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
+                          className="w-full px-2 sm:px-4 py-1.5 sm:py-2.5 text-[10px] sm:text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
                         >
                           <span>
                             {q === "auto"
@@ -426,10 +426,10 @@ export function CustomVideoControls({
           {/* Fullscreen */}
           <button
             onClick={onFullscreen}
-            className="text-white hover:text-blue-400 transition-colors p-2 hover:bg-white/10 rounded-full"
+            className="text-white hover:text-blue-400 transition-colors p-1.5 sm:p-2 hover:bg-white/10 rounded-full"
             aria-label="Fullscreen"
           >
-            <Maximize className="w-5 h-5" />
+            <Maximize className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
       </div>

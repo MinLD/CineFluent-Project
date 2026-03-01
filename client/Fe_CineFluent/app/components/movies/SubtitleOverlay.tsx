@@ -25,6 +25,8 @@ interface SubtitleOverlayProps {
   onWordClick: (word: string, context: string) => void;
   settings?: SubtitleSettings;
   isBlurred?: boolean;
+  showControls?: boolean;
+  showSubtitlePanel?: boolean;
 }
 
 export function SubtitleOverlay({
@@ -35,6 +37,8 @@ export function SubtitleOverlay({
   onWordClick,
   settings = { fontSize: "medium", bgOpacity: 0.9 },
   isBlurred = false,
+  showControls = true,
+  showSubtitlePanel = false,
 }: SubtitleOverlayProps) {
   // Tìm subtitle hiện tại bằng Binary Search - O(log n)
   const currentSubtitle = useMemo(() => {
@@ -68,24 +72,31 @@ export function SubtitleOverlay({
 
   // Font size classes
   const fontSizeClass = {
-    small: "text-base md:text-lg",
-    medium: "text-lg md:text-xl",
-    large: "text-xl md:text-2xl",
+    small: "text-[10px] sm:text-sm md:text-base",
+    medium: "text-[11px] sm:text-base md:text-lg",
+    large: "text-xs sm:text-lg md:text-xl",
   }[settings.fontSize];
 
+  let bottomClass = showControls
+    ? "bottom-[80px] sm:bottom-24"
+    : "bottom-2 sm:bottom-10";
+
   return (
-    <div className="absolute bottom-20 left-0 right-0 flex justify-center px-1 sm:px-4 pointer-events-none z-[10]">
-      <div
-        className="backdrop-blur-sm rounded-lg px-2 sm:px-6 py-1 sm:py-3 max-w-[85%] shadow-2xl border border-white/10 pointer-events-auto transition-all hover:bg-black/95"
-        style={{ backgroundColor: `rgba(0, 0, 0, ${settings.bgOpacity})` }}
-      >
+    <div
+      className={`absolute left-0 right-0 flex justify-center px-1 sm:px-4 pointer-events-none z-[20] transition-all duration-300 ease-in-out ${bottomClass}`}
+    >
+      <div className="px-2 sm:px-6 py-0.5 sm:py-2 max-w-[95%] md:max-w-[75%] pointer-events-auto transition-all">
         {/* Tiếng Anh - Dòng chính */}
         <p
-          className={`text-xs sm:text-sm md:text-base text-white font-semibold text-center leading-relaxed text-shadow-lg ${fontSizeClass} ${
+          className={`text-white font-semibold text-center leading-snug sm:leading-relaxed ${fontSizeClass} ${
             isBlurred
               ? "blur-[5px] select-none hover:blur-0 transition-all"
               : ""
           }`}
+          style={{
+            textShadow:
+              "0px 1px 4px rgba(0,0,0,0.9), 0px 0px 2px rgba(0,0,0,1)",
+          }}
         >
           {tokens_sub.map((token, index) => {
             if (token.isWord) {
@@ -114,11 +125,15 @@ export function SubtitleOverlay({
         {/* Tiếng Việt - Dòng phụ (chỉ hiển thị khi mode là "both") */}
         {subtitleMode === "both" && currentSubtitle.content_vi && (
           <p
-            className={`text-yellow-300 text-xs md:text-base text-center mt-1 leading-relaxed text-shadow-md ${
+            className={`text-yellow-300 text-[9px] sm:text-sm md:text-base text-center mt-0.5 leading-snug sm:leading-relaxed ${
               isBlurred
                 ? "blur-[5px] select-none hover:blur-0 transition-all"
                 : ""
             }`}
+            style={{
+              textShadow:
+                "0px 1px 3px rgba(0,0,0,0.9), 0px 0px 2px rgba(0,0,0,1)",
+            }}
           >
             {currentSubtitle.content_vi}
           </p>

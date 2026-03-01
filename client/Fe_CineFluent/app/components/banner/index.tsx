@@ -42,7 +42,7 @@ const Banner = () => {
               className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-bold mb-4 sm:mb-6 tracking-tight leading-tight"
             >
               Học tiếng Anh qua
-              <span className="text-blue-500 block mt-2">Phim ảnh 🎬</span>
+              <span className="text-blue-500 block mt-2">Phim ảnh</span>
             </motion.h1>
             <motion.div
               variants={itemVariants}
@@ -52,7 +52,7 @@ const Banner = () => {
             >
               <TypeAnimation
                 sequence={[
-                  "Xem phim yêu thích. Nhấp vào phụ đề để học từ vựng. Chơi game nhiều người. Thành thạo tiếng Anh một cách tự nhiên và vui vẻ! 🍿",
+                  "Xem phim yêu thích. Nhấp vào phụ đề để học từ vựng. Chơi game nhiều người. Thành thạo tiếng Anh một cách tự nhiên và vui vẻ!",
                   1000,
                 ]}
                 wrapper="p"
@@ -85,7 +85,7 @@ const Banner = () => {
                   whileTap={{ scale: 0.95 }}
                   className="cursor-pointer rounded-sm flex items-center justify-center w-full sm:w-auto bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white hover:bg-white/20 px-6 sm:px-8 py-3 sm:py-6 text-base sm:text-lg font-semibold"
                 >
-                  <span className="mr-2">Chơi Game</span> 🎮
+                  <span className="mr-2">Chơi Game</span>
                 </motion.button>
               </Link>
             </motion.div>

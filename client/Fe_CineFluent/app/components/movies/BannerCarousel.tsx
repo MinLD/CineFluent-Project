@@ -97,7 +97,7 @@ export default function BannerCarousel({
             </div>
 
             {/* Content */}
-            <div className="relative z-20 w-full max-w-[1920px] bottom-15 lg:bottom-0 mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center mb-16 lg:mb-0 ">
+            <div className="relative z-20 w-full max-w-[1920px]  lg:bottom-0 mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center mb-16 lg:mb-0 ">
               <div className="max-w-2xl space-y-4 lg:space-y-6 pt-10 lg:pt-20">
                 {/* Title */}
                 <div>
@@ -141,7 +141,7 @@ export default function BannerCarousel({
       </Swiper>
 
       {/* Thumbnails Sidebar (Bottom Right - Horizontal) - Hidden on Mobile/Tablet */}
-      <div className="absolute z-10 w-[350px] sm:w-[450px] bottom-20 md:bottom-20  px-0 right-3 left-auto lg:bottom-24 lg:w-[480px] xl:w-[800px]">
+      <div className="hidden md:block absolute z-10 w-[350px] sm:w-[450px] bottom-20 md:bottom-20  px-0 right-3 left-auto lg:bottom-24 lg:w-[480px] xl:w-[800px]">
         <div className="px-2">
           <Swiper
             onSwiper={setThumbsSwiper}

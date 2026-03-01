@@ -145,9 +145,9 @@ export default function SidebarWithAuth({ onClose }: { onClose: () => void }) {
           <div className="space-y-1">
             <MenuItem icon={Settings} label="Cài đặt" href="/settings" />
             <MenuItem
-              icon={HelpCircle}
-              label="Trợ giúp & Hỗ trợ"
-              href="/help"
+              icon={BookOpen}
+              label="Học Flashcards"
+              href="/flashcards"
             />
           </div>
         </div>

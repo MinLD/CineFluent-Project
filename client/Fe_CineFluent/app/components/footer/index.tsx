@@ -12,8 +12,8 @@ function MyFooter() {
             <div className="space-y-4">
               <Logo />
               <p className="text-gray-400 text-sm">
-                Kết nối doanh nghiệp và cá nhân để tạo ra sự thay đổi tích cực
-                trong cộng đồng trên toàn thế giới.
+                Nền tảng học ngoại ngữ qua phim ảnh tương tác với phụ đề song
+                ngữ và từ điển AI thông minh.
               </p>
             </div>
             {siteTitleFooter.map((item) => (
@@ -23,7 +23,7 @@ function MyFooter() {
                   {item.children.map((child) => (
                     <li key={child.id}>
                       <Link
-                        href="/challenges"
+                        href={child.href || "#"}
                         className="hover:text-white transition-colors"
                       >
                         {child.label}

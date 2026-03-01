@@ -11,12 +11,16 @@ export async function POST(request: Request) {
 
     const { access_token, refresh_token } = res.data.data;
 
+    const isHttps =
+      request.headers.get("x-forwarded-proto") === "https" ||
+      request.url.startsWith("https");
+
     const response = NextResponse.json(res.data, {
       status: res.data.code,
     });
 
     response.cookies.set("access_token", access_token, {
-      secure: process.env.NODE_ENV === "production",
+      secure: isHttps,
       sameSite: "lax",
       maxAge: 3600,
       path: "/",
@@ -25,7 +29,7 @@ export async function POST(request: Request) {
     if (refresh_token) {
       response.cookies.set("refresh_token", refresh_token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: isHttps,
         sameSite: "lax",
         maxAge: 2592000,
         path: "/",

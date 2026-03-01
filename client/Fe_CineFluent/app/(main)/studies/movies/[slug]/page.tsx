@@ -18,7 +18,7 @@ export default async function VideoDetailPage({
 
   return (
     <>
-      <div className="bg-slate-900 min-h-screen mb-50 sm:mb-0">
+      <div className="bg-slate-900">
         <VideoPlayerWrapper video={video} />
       </div>
     </>

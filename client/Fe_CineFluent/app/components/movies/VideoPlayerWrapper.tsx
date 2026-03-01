@@ -770,10 +770,16 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
             </div>
           )}
 
-          {/* Click Overlay for Play/Pause */}
+          {/* Click Overlay for Showing Controls Only (Not Pausing) */}
           <div
             className="absolute inset-0 z-[10] cursor-pointer"
-            onClick={handleVideoClick}
+            onClick={() => {
+              if (showControls) {
+                setShowControls(false);
+              } else {
+                resetHideControlsTimeout();
+              }
+            }}
             onDoubleClick={handleFullscreen}
           />
 
@@ -784,19 +790,19 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
             {/* Back Button */}
             <Link
               href="/studies/movies"
-              className="inline-flex items-center gap-2 text-white hover:text-blue-400 transition-colors pointer-events-auto px-4 py-2 rounded-lg"
+              className="inline-flex items-center gap-1.5 md:gap-2 text-white hover:text-blue-400 transition-colors pointer-events-auto px-2 md:px-4 py-1.5 md:py-2 rounded-lg"
             >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Quay lại</span>
+              <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="text-sm md:text-base font-medium">Quay lại</span>
             </Link>
 
             {/* Report Button */}
             <button
-              className="inline-flex items-center gap-2 text-white hover:text-red-400 transition-colors pointer-events-auto px-4 py-2 rounded-lg"
+              className="inline-flex items-center gap-1.5 md:gap-2 text-white hover:text-red-400 transition-colors pointer-events-auto px-2 md:px-4 py-1.5 md:py-2 rounded-lg"
               aria-label="Báo lỗi"
             >
-              <Flag className="w-5 h-5" />
-              <span className="font-medium">Báo Lỗi</span>
+              <Flag className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="text-sm md:text-base font-medium">Báo Lỗi</span>
             </button>
           </div>
           <span />
@@ -823,6 +829,8 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
             onWordClick={handleWordClick}
             settings={subtitleSettings}
             isBlurred={isBlurred}
+            showControls={showControls}
+            showSubtitlePanel={showSubtitlePanel}
           />
 
           {/* --- SHADOWING OVERLAY --- */}
