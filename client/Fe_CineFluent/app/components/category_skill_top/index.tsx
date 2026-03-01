@@ -65,9 +65,6 @@ const Categiries_Skill_Top = ({ categories = [] }: prop) => {
               onClick={handleSeeAll}
               className="group h-auto bg-white/50 border-2 border-dashed border-gray-300 rounded-2xl p-5 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all duration-300 min-h-[252px]"
             >
-              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                <ChevronDown className="w-8 h-8 text-gray-400 group-hover:text-blue-600 -rotate-90 ml-1" />
-              </div>
               <p className="font-semibold text-gray-600 group-hover:text-blue-700 text-lg">
                 Xem tất cả
               </p>

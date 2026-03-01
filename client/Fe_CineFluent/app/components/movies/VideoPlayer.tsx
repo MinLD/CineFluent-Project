@@ -1,7 +1,7 @@
 import { useEffect, forwardRef, memo } from "react";
 import { AlertCircle } from "lucide-react";
 import { I_Video } from "@/app/lib/types/video";
-import { FeApiProxyUrl } from "@/app/lib/services/api_client";
+import { API_BASE_URL } from "@/app/lib/services/api_client";
 
 interface VideoPlayerProps {
   video: I_Video;
@@ -41,7 +41,7 @@ export const VideoPlayer = memo(
             <div className="aspect-video">
               <video
                 ref={ref}
-                src={`${FeApiProxyUrl}/videos/stream/drive/${video.stream_url}`}
+                src={`${API_BASE_URL}/videos/stream/drive/${video.stream_url}`}
                 controls={false}
                 className="w-full h-full"
                 autoPlay

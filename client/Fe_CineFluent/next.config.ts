@@ -31,12 +31,14 @@ const nextConfig: NextConfig = {
       ? "http://backend:5000/api"
       : "http://127.0.0.1:5000/api";
 
-    return [
-      {
-        source: "/apiFe/:path*",
-        destination: `${internalUrl}/:path*`,
-      },
-    ];
+    return {
+      fallback: [
+        {
+          source: "/apiFe/:path*",
+          destination: `${internalUrl}/:path*`,
+        },
+      ],
+    };
   },
 
   images: {

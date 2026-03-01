@@ -12,16 +12,14 @@ export const BeUrl = isServer
   ? process.env.URL_BACKEND_INTERNAL || // 1. Ưu tiên đường dẫn nội bộ Docker (khi chạy trên VPS)
     process.env.URL_BACKEND_LOCAL || // 2. Nếu không có, dùng biến môi trường Local
     "http://127.0.0.1:5000/api" // 3. Cuối cùng fallback về localhost mặc định
-  : isProd
-    ? "/api" // Production Client: Dùng đường dẫn tương đối (Nginx Proxy tự xử lý)
-    : FeApiProxyUrl; // Development Client: Đi qua Proxy của Next.js (/apiFe)
+  : FeApiProxyUrl; // Always go through Next.js proxy on the client
 
 // --- 2. Cấu hình Frontend URL (Dùng cho SEO, Redirect, Link chia sẻ) ---
 export const FeUrl = isProd
   ? process.env.NEXT_PUBLIC_URL_FRONTEND_PRODUCTION || "" // Production: Domain thật (https://...)
   : process.env.NEXT_PUBLIC_URL_FRONTEND_LOCAL || "http://localhost:3000"; // Dev: Localhost
 
-export const API_BASE_URL = BeUrl;
+export const API_BASE_URL = isServer ? BeUrl : isProd ? "/api" : BeUrl; // Keep direct /api for Streaming Media
 
 const axiosClientConfig = {
   baseURL: BeUrl,
