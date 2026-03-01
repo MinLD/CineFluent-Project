@@ -31,8 +31,12 @@ export function VideoList({
     queryFn: () => getVideosAction(1, 12, categoryId, releaseYear, source_type),
     initialData: {
       videos: initialVideos,
-      total: initialVideos.length,
-      total_pages: 1,
+      pagination: {
+        total_items: initialVideos.length,
+        total_pages: 1,
+        current_page: 1,
+        per_page: 12,
+      },
     },
     staleTime: 60 * 1000, // Keep data fresh for 1 minute
   });

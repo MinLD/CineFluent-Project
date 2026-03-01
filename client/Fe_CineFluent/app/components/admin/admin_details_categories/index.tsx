@@ -14,23 +14,7 @@ import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 import { useRouter } from "next/navigation";
 import AdminCreateVideo from "@/app/components/admin/admin_create_video";
 import AdminUpdateVideo from "@/app/components/admin/admin_update_video";
-
-// Define Video Types locally or import if available
-interface I_Video {
-  id: number;
-  title: string;
-  thumbnail_url: string;
-  level: string;
-  slug: string;
-  view_count: number;
-  source_type: string;
-  source_url: string;
-  categories?: {
-    id: number;
-    name: string;
-    slug: string;
-  }[];
-}
+import { I_Video } from "@/app/lib/types/video";
 
 interface I_VideoData {
   videos: I_Video[];
@@ -180,7 +164,7 @@ function VideoManagement({ data_videos, category_id, data_categories }: Props) {
         setClose={handleCloseEdit}
         token={token!}
         video={editingVideo}
-        data_categories={data_categories}
+        data_categories={data_categories as I_categories_data}
       />
     );
   }

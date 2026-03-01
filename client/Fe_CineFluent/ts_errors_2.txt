@@ -1,0 +1,13 @@
+﻿app/components/admin/videos_management/index.tsx(74,29): error TS2339: Property 'total_pages' does not exist on type '{ videos: any; pagination: any; }'.
+app/components/admin/videos_management/index.tsx(75,29): error TS2339: Property 'total' does not exist on type '{ videos: any; pagination: any; }'.
+app/components/admin/videos_management/index.tsx(77,33): error TS2339: Property 'total_pages' does not exist on type '{ videos: any; pagination: any; }'.
+app/components/movies/VideoList.tsx(34,7): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(options: DefinedInitialDataOptions<{ videos: any; pagination: any; }, Error, { videos: any; pagination: any; }, (string | number | undefined)[]>, queryClient?: QueryClient | undefined): DefinedUseQueryResult<...>', gave the following error.
+    Object literal may only specify known properties, and 'total' does not exist in type '({ videos: any; pagination: any; } | InitialDataFunction<{ videos: any; pagination: any; }> | undefined) & ({ videos: any; pagination: any; } | (() => { videos: any; pagination: any; }))'.
+  Overload 2 of 3, '(options: UndefinedInitialDataOptions<{ videos: any; pagination: any; }, Error, { videos: any; pagination: any; }, (string | number | undefined)[]>, queryClient?: QueryClient | undefined): UseQueryResult<...>', gave the following error.
+    Object literal may only specify known properties, and 'total' does not exist in type '{ videos: any; pagination: any; } | InitialDataFunction<{ videos: any; pagination: any; }>'.
+  Overload 3 of 3, '(options: UseQueryOptions<{ videos: any; pagination: any; }, Error, { videos: any; pagination: any; }, (string | number | undefined)[]>, queryClient?: QueryClient | undefined): UseQueryResult<...>', gave the following error.
+    Object literal may only specify known properties, and 'total' does not exist in type '{ videos: any; pagination: any; } | InitialDataFunction<{ videos: any; pagination: any; }>'.
+app/lib/actions/skills.ts(13,5): error TS2554: Expected 2 arguments, but got 1.
+app/lib/actions/skills.ts(31,5): error TS2554: Expected 2 arguments, but got 1.
+app/lib/actions/skills.ts(48,5): error TS2554: Expected 2 arguments, but got 1.

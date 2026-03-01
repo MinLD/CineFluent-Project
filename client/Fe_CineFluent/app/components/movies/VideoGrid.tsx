@@ -20,7 +20,16 @@ export function VideoGrid({ initialVideos }: VideoGridProps) {
 
   const { data, isLoading } = useQuery({
     queryKey: ["videos", filters],
-    queryFn: () => getVideosAction(filters),
+    queryFn: () =>
+      getVideosAction(
+        1,
+        12,
+        filters.category_id,
+        undefined,
+        filters.source_type,
+        undefined,
+        filters.search,
+      ),
     initialData: initialVideos,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -48,7 +57,7 @@ export function VideoGrid({ initialVideos }: VideoGridProps) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {videos?.videos?.map((video: any) => (
+      {videos.map((video: any) => (
         <VideoCard key={video.id} video={video} />
       ))}
     </div>

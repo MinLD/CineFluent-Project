@@ -71,10 +71,10 @@ function Videos_Management({ data_videos, data_categories }: Props) {
       setData(result.videos);
       setPagination({
         current_page: page,
-        total_pages: result.total_pages,
-        total_items: result.total,
+        total_pages: result.pagination.total_pages,
+        total_items: result.pagination.total_items,
         per_page: 5,
-        has_next: page < result.total_pages,
+        has_next: page < result.pagination.total_pages,
         has_prev: page > 1,
       });
     } catch (error) {

@@ -35,12 +35,24 @@ export async function getVideosAction(
     const { videos, pagination } = res.data.data;
     return {
       videos: videos || [],
-      total: pagination?.total_items || 0,
-      total_pages: pagination?.total_pages || 1,
+      pagination: pagination || {
+        current_page: 1,
+        per_page: 12,
+        total_items: 0,
+        total_pages: 1,
+      },
     };
   } catch (error: any) {
     console.error("[getVideosAction] Error:", error.message);
-    return { videos: [], total: 0, total_pages: 1 };
+    return {
+      videos: [],
+      pagination: {
+        current_page: 1,
+        per_page: 12,
+        total_items: 0,
+        total_pages: 1,
+      },
+    };
   }
 }
 

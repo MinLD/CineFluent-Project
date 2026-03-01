@@ -1,0 +1,22 @@
+﻿app/components/admin/admin_details_categories/index.tsx(182,9): error TS2739: Type 'I_Video' is missing the following properties from type 'I_Video': runtime, stream_url, status, created_at, updated_at
+app/components/admin/admin_details_categories/index.tsx(183,9): error TS2322: Type 'I_categories_data | undefined' is not assignable to type 'I_categories_data'.
+  Type 'undefined' is not assignable to type 'I_categories_data'.
+app/components/all_categories/index.tsx(46,57): error TS2554: Expected 2 arguments, but got 4.
+app/components/all_categories/index.tsx(74,9): error TS2554: Expected 2 arguments, but got 4.
+app/components/fetcher_components/SkillsFetcher.tsx(1,28): error TS2307: Cannot find module '@/app/lib/data/skills' or its corresponding type declarations.
+app/components/movies/VideoGrid.tsx(21,31): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(options: DefinedInitialDataOptions<I_Videos_Data, Error, I_Videos_Data, (string | { source_type: undefined; category_id: undefined; search: string; })[]>, queryClient?: QueryClient | undefined): DefinedUseQueryResult<...>', gave the following error.
+    Type '() => Promise<{ videos: any; total: any; total_pages: any; }>' is not assignable to type 'QueryFunction<I_Videos_Data, (string | { source_type: undefined; category_id: undefined; search: string; })[]>'.
+      Type 'Promise<{ videos: any; total: any; total_pages: any; }>' is not assignable to type 'I_Videos_Data | Promise<I_Videos_Data>'.
+        Type 'Promise<{ videos: any; total: any; total_pages: any; }>' is not assignable to type 'Promise<I_Videos_Data>'.
+          Property 'pagination' is missing in type '{ videos: any; total: any; total_pages: any; }' but required in type 'I_Videos_Data'.
+  Overload 2 of 3, '(options: UndefinedInitialDataOptions<{ videos: any; total: any; total_pages: any; }, Error, { videos: any; total: any; total_pages: any; }, (string | { source_type: undefined; category_id: undefined; search: string; })[]>, queryClient?: QueryClient | undefined): UseQueryResult<...>', gave the following error.
+    Type 'I_Videos_Data' is not assignable to type '{ videos: any; total: any; total_pages: any; } | InitialDataFunction<{ videos: any; total: any; total_pages: any; }> | undefined'.
+      Type 'I_Videos_Data' is missing the following properties from type '{ videos: any; total: any; total_pages: any; }': total, total_pages
+  Overload 3 of 3, '(options: UseQueryOptions<{ videos: any; total: any; total_pages: any; }, Error, { videos: any; total: any; total_pages: any; }, (string | { source_type: undefined; category_id: undefined; search: string; })[]>, queryClient?: QueryClient | undefined): UseQueryResult<...>', gave the following error.
+    Type 'I_Videos_Data' is not assignable to type '{ videos: any; total: any; total_pages: any; } | InitialDataFunction<{ videos: any; total: any; total_pages: any; }> | undefined'.
+      Type 'I_Videos_Data' is missing the following properties from type '{ videos: any; total: any; total_pages: any; }': total, total_pages
+app/components/movies/VideoGrid.tsx(23,36): error TS2345: Argument of type '{ source_type: undefined; category_id: undefined; search: string; }' is not assignable to parameter of type 'number'.
+app/components/movies/VideoGrid.tsx(51,16): error TS2339: Property 'videos' does not exist on type 'I_Video[]'.
+app/components/profile/skill/CreateSkill.tsx(2,39): error TS2307: Cannot find module '@/app/lib/actions/skills' or its corresponding type declarations.
+app/components/profile/skill/UpdateSkill.tsx(1,62): error TS2307: Cannot find module '@/app/lib/actions/skills' or its corresponding type declarations.
