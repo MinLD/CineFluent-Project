@@ -51,6 +51,9 @@ def get_drive_service():
         print(f"[ERROR] Không thể khởi tạo Drive service: {e}")
         return None
 
+import functools
+
+@functools.lru_cache(maxsize=128)
 def get_file_metadata(file_id):
     """Gets file metadata (size, mimeType, name)."""
     service = get_drive_service()

@@ -26,6 +26,7 @@ export const API_BASE_URL = BeUrl;
 const axiosClientConfig = {
   baseURL: BeUrl,
   timeout: 60000,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },

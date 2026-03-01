@@ -18,7 +18,7 @@ def create_app(config_name='default'):
     db.init_app(app)
     register_error_handlers(app)
     # Gọi hàm init_app từ đối tượng cors
-    cors.init_app(app, resources={r"/api/*": {"origins": ["http://localhost", "http://localhost:3000", "http://127.0.0.1:3000", "http://frontend:3000"]}},
+    cors.init_app(app, resources={r"/api/*": {"origins": ["http://localhost", "http://localhost:3000", "http://127.0.0.1:3000", "http://frontend:3000", "https://purpleduck.io.vn"]}},
                   supports_credentials=True)
     migrate.init_app(app, db)
     jwt.init_app(app)

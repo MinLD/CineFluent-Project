@@ -11,7 +11,9 @@ export async function POST(request: Request) {
 
     const { access_token, refresh_token } = res.data.data;
 
+    const isProd = process.env.NODE_ENV === "production";
     const isHttps =
+      isProd ||
       request.headers.get("x-forwarded-proto") === "https" ||
       request.url.startsWith("https");
 

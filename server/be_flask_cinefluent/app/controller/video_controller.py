@@ -132,8 +132,7 @@ def get_detail(slug: str):
         # Nhưng theo yêu cầu viewer không được xem phim private
         return error_response("Phim này hiện đang ở chế độ riêng tư", 403)
 
-    # Sắp xếp phụ đề theo thời gian để người dùng học đúng thứ tự
-    ordered_subs = Subtitle.query.filter_by(video_id=video.id).order_by(Subtitle.start_time.asc()).all()
+
 
     # Tăng lượt xem (tùy chọn)
     video.view_count += 1
@@ -220,8 +219,8 @@ def generate(file_id, start, end):
         url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
         headers = {"Authorization": f"Bearer {creds.token}", "Range": f"bytes={start}-{end}"}
 
-        # Sử dụng session để giữ kết nối (Keep-Alive) giúp nhanh hơn
-        with requests.Session().get(url, headers=headers, stream=True, timeout=10) as r:
+        # Sử dụng stream=True giúp xả chunk ngay lập tức
+        with requests.get(url, headers=headers, stream=True, timeout=(3.0, 10.0)) as r:
             for chunk in r.iter_content(chunk_size=512 * 1024):  # 512KB
                 if chunk:
                     yield chunk
@@ -260,9 +259,10 @@ def stream_drive_video(file_id):
         response = Response(None)
         response.headers['X-Accel-Redirect'] = '/internal_drive_stream/'
         response.headers['X-Video-Url'] = google_drive_url
-        response.headers['Authorization'] = f"Bearer {creds.token}"
+        response.headers['X-Google-Token'] = f"Bearer {creds.token}"
         response.headers['Content-Type'] = mime_type
         response.headers['Content-Disposition'] = f"inline; filename=\"{file_name}\""
+        response.headers['X-Streaming-By'] = "Nginx-Accel"
         # Nginx Slice Module sẽ tự xử lý Range Header dựa trên cấu hình 1MB của bạn
         return response
 
@@ -291,6 +291,7 @@ def stream_drive_video(file_id):
         resp.headers.add('Content-Range', f'bytes {byte1}-{byte2}/{file_size}')
         resp.headers.add('Accept-Ranges', 'bytes')
         resp.headers.add('Content-Length', str(length))
+        resp.headers.add('X-Streaming-By', 'Flask-Python')
         return resp
 @video_bp.route('/subtitles/parse', methods=['POST'])
 def parse_subtitle_file():
