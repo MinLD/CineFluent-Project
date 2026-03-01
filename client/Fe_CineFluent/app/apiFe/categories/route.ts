@@ -12,10 +12,10 @@ export async function GET(request: Request) {
   try {
     const res = await get_all_categories(page, per_page);
     console.log("API Route categories res:", res);
-    if (res.status !== 200) {
+    if (res.status !== 201) {
       return NextResponse.json(
         { error: "Failed to fetch categories" },
-        { status: res.status }
+        { status: res.status },
       );
     }
     const responseData = NextResponse.json(res.data.data, {
@@ -24,14 +24,14 @@ export async function GET(request: Request) {
 
     responseData.headers.set(
       "Cache-Control",
-      "public, s-maxage=60, stale-while-revalidate=120"
+      "public, s-maxage=60, stale-while-revalidate=120",
     );
     return responseData;
   } catch (error) {
     console.error("Lỗi API Route:", error);
     return NextResponse.json(
       { error: "Đã có lỗi phía máy chủ" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   if (!token) {
     return NextResponse.json(
       { message: "Unauthorized: Access token not found" },
-      { status: 401 }
+      { status: 401 },
     );
   }
   const formData = await request.formData();
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
         message: "Error creating category",
         error: error.response?.data || error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

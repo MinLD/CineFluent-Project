@@ -9,27 +9,39 @@ import AudioPage from "./AudioPage"; // Import AudioPage
 import { QuickDictionaryModal } from "./QuickDictionaryModal";
 
 import { DictationModal } from "./DictationModal";
-import { I_Subtitle } from "@/app/lib/types/video";
+import { I_Subtitle, I_Video } from "@/app/lib/types/video";
 import { FeApiProxyUrl } from "@/app/lib/services/api_client";
-import { ArrowLeft, Flag } from "lucide-react";
+import { findCurrentSubtitleIndex } from "@/app/utils/binarySearch";
+import {
+  ArrowLeft,
+  Flag,
+  Pause,
+  Play,
+  Loader2,
+  Clock as ClockIcon,
+} from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 interface VideoPlayerWrapperProps {
-  video: {
-    id: number;
-    title: string;
-    source_type?: string;
-    source_url: string;
-    youtube_id?: string;
-    imdb_id?: string;
-    subtitles?: I_Subtitle[];
-  };
+  video: I_Video;
+}
+
+// [FIX] Hàm trợ giúp tách ID từ URL YouTube tại Frontend
+function extractYouTubeID(url: string): string | null {
+  if (!url) return null;
+  const pattern = /(?:v=|\/)([0-9A-Za-z_-]{11}).*/;
+  const match = url.match(pattern);
+  return match ? match[1] : null;
 }
 
 export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
-  const isDrive = video.source_type === "drive";
-  // const isDrive = true; // FORCE DRIVE FOR TESTING
+  const isDrive = video.source_type === "local";
   const driveVideoRef = useRef<HTMLVideoElement>(null);
+
+  // [FIX] Sử dụng source_url để xác định youtubeId
+  const youtubeId =
+    video.source_type === "youtube" ? extractYouTubeID(video.source_url) : null;
 
   // Player state
   const [currentTime, setCurrentTime] = useState(0);
@@ -38,6 +50,14 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   const [volume, setVolume] = useState(100);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showControls, setShowControls] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasStarted, setHasStarted] = useState(false);
+
+  // [VTT_OPTIMIZATION] Subtitles state and Active Index
+  const [subtitles, setSubtitles] = useState<I_Subtitle[]>(
+    video.subtitles || [],
+  );
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   // Settings state
   const [subtitleMode, setSubtitleMode] = useState<"both" | "en" | "off">(
@@ -66,6 +86,12 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     fontSize: "medium", // small, medium, large
     bgOpacity: 0.9, // 0 to 1
   });
+
+  // Play/Pause Animation State
+  const [playAnimation, setPlayAnimation] = useState<"play" | "pause" | null>(
+    null,
+  );
+  const animationTimeoutRef = useRef<any>(null);
 
   // Handle Quality Change
   const handleQualityChange = useCallback((newQuality: string) => {
@@ -103,10 +129,51 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   const playingSegmentEndTimeRef = useRef<number | null>(null); // Ref để kiểm tra thời gian kết thúc (Double Safety)
   const activeSegmentCallbackRef = useRef<(() => void) | null>(null); // Callback khi kết thúc segment
   const safetyCheckTimeoutRef = useRef<any>(null); // Timeout để kích hoạt Double Safety sau khi seek xong
+  const lastTimeRef = useRef(0);
+  const lastIndexRef = useRef(-1);
+
+  // [VTT_OPTIMIZATION] Nạp file VTT qua Web Worker
+  useEffect(() => {
+    if (!video.subtitle_vtt_url) return;
+
+    const fetchAndParseVTT = async () => {
+      try {
+        const response = await fetch(
+          `${FeApiProxyUrl}${video.subtitle_vtt_url}`,
+        );
+        const vttText = await response.text();
+
+        // Khởi tạo Web Worker
+        const worker = new Worker(
+          new URL("@/app/utils/vtt.worker.ts", import.meta.url),
+        );
+
+        worker.onmessage = (e) => {
+          if (e.data.success) {
+            console.log(
+              "✅ VTT Parsed via Worker:",
+              e.data.subtitles.length,
+              "items",
+            );
+            setSubtitles(e.data.subtitles);
+          } else {
+            console.error("❌ Worker Parse Error:", e.data.error);
+          }
+          worker.terminate();
+        };
+
+        worker.postMessage({ vttText });
+      } catch (err) {
+        console.error("❌ Failed to fetch/parse VTT:", err);
+      }
+    };
+
+    fetchAndParseVTT();
+  }, [video.subtitle_vtt_url]);
 
   // Initialize YouTube Player
   useEffect(() => {
-    if (isDrive || !video.youtube_id || isInitializedRef.current) return;
+    if (isDrive || !youtubeId || isInitializedRef.current) return;
 
     const initPlayer = () => {
       if (playerRef.current) {
@@ -114,12 +181,15 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
         return;
       }
 
-      console.log("Initializing YouTube player with ID:", video.youtube_id);
+      console.log(
+        "Initializing YouTube player with ID extracted from URL:",
+        youtubeId,
+      );
 
       playerRef.current = new (window as any).YT.Player("youtube-player-sync", {
         height: "100%",
         width: "100%",
-        videoId: video.youtube_id,
+        videoId: youtubeId,
         playerVars: {
           autoplay: 0,
           controls: 0, // ❌ TẮT YouTube controls
@@ -146,16 +216,28 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
             setIsPlaying(event.data === YT.PlayerState.PLAYING);
 
             if (event.data === YT.PlayerState.PLAYING) {
+              setIsLoading(false);
+              setHasStarted(true);
               console.log("Video playing - starting time tracking");
               // Interval is handled by unified useEffect now
-            } else {
-              // Interval cleared by unified useEffect
-              if (
-                event.data === YT.PlayerState.PAUSED &&
-                playerRef.current?.getCurrentTime
-              ) {
-                setCurrentTime(playerRef.current.getCurrentTime());
-              }
+            } else if (event.data === YT.PlayerState.BUFFERING) {
+              setIsLoading(true);
+            } else if (
+              event.data === YT.PlayerState.PAUSED ||
+              event.data === (window as any).YT.PlayerState.CUED
+            ) {
+              setIsLoading(false);
+            } else if (event.data === YT.PlayerState.UNSTARTED) {
+              setHasStarted(false);
+              setIsLoading(true);
+            }
+
+            // Interval cleared by unified useEffect
+            if (
+              event.data === YT.PlayerState.PAUSED &&
+              playerRef.current?.getCurrentTime
+            ) {
+              setCurrentTime(playerRef.current.getCurrentTime());
             }
           },
         },
@@ -194,15 +276,23 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       }
       isInitializedRef.current = false;
     };
-  }, [video.youtube_id]);
+  }, [youtubeId, isDrive]); // [FIX] Sử dụng youtubeId và isDrive làm dependencies
 
   // Unified Interval & Event Listeners for Drive
   useEffect(() => {
     // Handle Drive Video Events
     if (isDrive && driveVideoRef.current) {
       const vid = driveVideoRef.current;
-      const onPlay = () => setIsPlaying(true);
+      const onPlay = () => {
+        setIsPlaying(true);
+        setHasStarted(true);
+        setIsLoading(false);
+      };
       const onPause = () => setIsPlaying(false);
+      const onWaiting = () => setIsLoading(true);
+      const onPlaying = () => setIsLoading(false);
+      const onCanPlay = () => setIsLoading(false);
+      const onLoadedData = () => setIsLoading(false);
       const onLoadedMetadata = () => {
         if (vid) {
           setDuration(vid.duration);
@@ -211,10 +301,18 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       };
       vid.addEventListener("play", onPlay);
       vid.addEventListener("pause", onPause);
+      vid.addEventListener("waiting", onWaiting);
+      vid.addEventListener("playing", onPlaying);
+      vid.addEventListener("canplay", onCanPlay);
+      vid.addEventListener("loadeddata", onLoadedData);
       vid.addEventListener("loadedmetadata", onLoadedMetadata);
       return () => {
         vid.removeEventListener("play", onPlay);
         vid.removeEventListener("pause", onPause);
+        vid.removeEventListener("waiting", onWaiting);
+        vid.removeEventListener("playing", onPlaying);
+        vid.removeEventListener("canplay", onCanPlay);
+        vid.removeEventListener("loadeddata", onLoadedData);
         vid.removeEventListener("loadedmetadata", onLoadedMetadata);
       };
     }
@@ -232,6 +330,16 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
           time = playerRef.current.getCurrentTime();
         }
         setCurrentTime(time);
+
+        // [VTT_OPTIMIZATION] Decoupled Index Calculation
+        // Chỉ cập nhật activeIndex khi thực sự bước sang câu mới
+        if (subtitles.length > 0) {
+          const newIndex = findCurrentSubtitleIndex(subtitles, time);
+          if (newIndex !== lastIndexRef.current) {
+            setActiveIndex(newIndex);
+            lastIndexRef.current = newIndex;
+          }
+        }
 
         // --- DOUBLE SAFETY CHECK ---
         if (
@@ -332,12 +440,33 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       document.exitFullscreen();
     }
   }, []);
-
   // --- DICTIONARY HANDLERS ---
   const [selectedWord, setSelectedWord] = useState<{
     word: string;
     context: string;
   } | null>(null);
+  const handleVideoClick = useCallback(() => {
+    // Prevent if modals are open
+    if (shadowingSubtitle || dictationSubtitle || selectedWord) return;
+
+    if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current);
+
+    // Set animation based on current state (if playing, we are about to pause)
+    setPlayAnimation(isPlaying ? "pause" : "play");
+
+    // Toggle play/pause
+    handlePlayPause();
+
+    animationTimeoutRef.current = setTimeout(() => {
+      setPlayAnimation(null);
+    }, 600);
+  }, [
+    isPlaying,
+    handlePlayPause,
+    shadowingSubtitle,
+    dictationSubtitle,
+    selectedWord,
+  ]);
 
   const handleWordClick = useCallback((word: string, context: string) => {
     if (isDrive && driveVideoRef.current) driveVideoRef.current.pause();
@@ -588,33 +717,69 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       >
         <div
           ref={containerRef}
-          className="relative bg-slate-900 overflow-hidden group max-h-[calc(100vh-200px)]"
+          className="relative bg-slate-900 overflow-hidden group max-h-[calc(100vh)]"
           onMouseMove={handleMouseMove}
           onMouseLeave={() => setShowControls(false)}
           tabIndex={0}
         >
-          {isDrive ? (
-            /* DRIVE PLAYER (HTML5) */
-            <div className="relative w-full aspect-video bg-black">
-              <video
-                ref={driveVideoRef}
-                src={
-                  isDrive
-                    ? `${FeApiProxyUrl}/videos/stream/drive/${video.source_url}`
-                    : video.source_url
-                }
-                className="w-full h-full"
-                controls={false} // Custom controls only
-                playsInline
-              />
+          <VideoPlayer
+            ref={driveVideoRef}
+            video={video}
+            playerId="youtube-player-sync"
+          />
+
+          {/* Phase 1: Màn hình Poster ban đầu (Backdrop + Large Loader) */}
+          {!hasStarted && (
+            <div className="absolute inset-0 z-[30] flex flex-col items-center justify-center bg-black">
+              {video.backdrop_url && (
+                <div className="absolute inset-0">
+                  <Image
+                    src={video.backdrop_url}
+                    alt={video.title}
+                    fill
+                    className="object-cover opacity-60"
+                  />
+                </div>
+              )}
+
+              <div className="relative z-10 text-center">
+                {isLoading ? (
+                  <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="w-16 h-16 text-black animate-spin" />
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleVideoClick}
+                    className="group/play flex flex-col items-center gap-4"
+                  >
+                    <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center shadow-lg shadow-blue-900/40 ">
+                      <Play className="w-10 h-10 text-white fill-white ml-1" />
+                    </div>
+                  </button>
+                )}
+              </div>
             </div>
-          ) : (
-            <VideoPlayer video={video} playerId="youtube-player-sync" />
           )}
+
+          {/* Phase 2: Vòng xoay khi video bị lag/buffering lúc đang xem */}
+          {hasStarted && isLoading && (
+            <div className="absolute inset-0 z-[30] flex items-center justify-center pointer-events-none">
+              <div className="flex items-center gap-3">
+                <Loader2 className="w-10 h-10 text-black animate-spin" />
+              </div>
+            </div>
+          )}
+
+          {/* Click Overlay for Play/Pause */}
+          <div
+            className="absolute inset-0 z-[10] cursor-pointer"
+            onClick={handleVideoClick}
+            onDoubleClick={handleFullscreen}
+          />
 
           {/* Top Overlay Buttons */}
           <div
-            className={`absolute top-0 left-0 right-0 flex items-center justify-between p-4 z-5 bg-gradient-to-b from-black/60 to-transparent pointer-events-none transition-opacity duration-300 ease-in-out ${showControls ? "opacity-100" : "opacity-0"}`}
+            className={`absolute top-0 left-0 right-0 flex items-center justify-between p-4 z-[25] bg-gradient-to-b from-black/60 to-transparent pointer-events-none transition-opacity duration-300 ease-in-out ${showControls ? "opacity-100" : "opacity-0"}`}
           >
             {/* Back Button */}
             <Link
@@ -636,9 +801,23 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
           </div>
           <span />
 
+          {/* Play/Pause Animation Icon */}
+          {playAnimation && (
+            <div className="absolute inset-0 z-[15] flex items-center justify-center pointer-events-none">
+              <div className="bg-black/40 backdrop-blur-sm p-6 rounded-full animate-ping-short flex items-center justify-center">
+                {playAnimation === "play" ? (
+                  <Play className="w-12 h-12 text-white fill-white" />
+                ) : (
+                  <Pause className="w-12 h-12 text-white fill-white" />
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Subtitle Overlay */}
           <SubtitleOverlay
-            subtitles={video.subtitles || []}
+            subtitles={subtitles}
+            activeIndex={activeIndex}
             currentTime={currentTime}
             subtitleMode={subtitleMode}
             onWordClick={handleWordClick}
@@ -648,7 +827,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
 
           {/* --- SHADOWING OVERLAY --- */}
           {shadowingSubtitle && (
-            <div className="absolute inset-0 z-[11] flex items-center justify-center animate-fade-in">
+            <div className="absolute inset-0 z-[50] flex items-center justify-center animate-fade-in">
               <AudioPage
                 originalText={shadowingSubtitle.content_en}
                 onClose={() => {
@@ -693,40 +872,50 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
               onClose={closeDictionary}
             />
           )}
+
+          {/* Custom Controls (Inside for Fullscreen) */}
+          <div
+            className={`absolute bottom-0 left-0 right-0 z-[40] transition-opacity duration-300 ease-in-out ${
+              showControls
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }`}
+          >
+            <CustomVideoControls
+              playerRef={playerRef}
+              currentTime={currentTime}
+              duration={duration}
+              isPlaying={isPlaying}
+              volume={volume}
+              playbackRate={playbackRate}
+              onPlayPause={handlePlayPause}
+              onSeek={handleSeek}
+              onVolumeChange={handleVolumeChange}
+              onPlaybackRateChange={handlePlaybackRateChange}
+              onFullscreen={handleFullscreen}
+              subtitleMode={subtitleMode}
+              onSubtitleModeChange={setSubtitleMode}
+              showSubtitlePanel={showSubtitlePanel}
+              onShowSubtitlePanelChange={setShowSubtitlePanel}
+              qualities={qualities}
+              currentQuality={currentQuality}
+              onQualityChange={handleQualityChange}
+              subtitleSettings={subtitleSettings}
+              onSubtitleSettingsChange={setSubtitleSettings}
+            />
+          </div>
         </div>
 
-        {/* Custom Controls (Outside & Below Video) */}
-        <div className="w-full bg-slate-900 border-t border-slate-700/50 relative z-[11]">
-          <CustomVideoControls
-            playerRef={playerRef}
-            currentTime={currentTime}
-            duration={duration}
-            isPlaying={isPlaying}
-            volume={volume}
-            playbackRate={playbackRate}
-            onPlayPause={handlePlayPause}
-            onSeek={handleSeek}
-            onVolumeChange={handleVolumeChange}
-            onPlaybackRateChange={handlePlaybackRateChange}
-            onFullscreen={handleFullscreen}
-            subtitleMode={subtitleMode}
-            onSubtitleModeChange={setSubtitleMode}
-            showSubtitlePanel={showSubtitlePanel}
-            onShowSubtitlePanelChange={setShowSubtitlePanel}
-            qualities={qualities}
-            currentQuality={currentQuality}
-            onQualityChange={handleQualityChange}
-            subtitleSettings={subtitleSettings}
-            onSubtitleSettingsChange={setSubtitleSettings}
-          />
-        </div>
+        {/* Custom Controls (Inside Container for Fullscreen support) */}
+        {/* Note: Moved inside containerRef and added absolute positioning */}
       </div>
 
       {/* Right: Subtitle Panel (để navigate) */}
       {showSubtitlePanel && (
-        <div className="lg:col-span-1 animate-slide-in h-0 min-h-full">
+        <div className="z-[50] lg:col-span-1 animate-slide-in h-0 min-h-full">
           <SubtitlePanel
-            subtitles={video.subtitles || []}
+            subtitles={subtitles}
+            activeIndex={activeIndex}
             currentTime={currentTime}
             onSubtitleClick={handleSubtitleClick}
             onPracticeClick={handlePracticeClick}

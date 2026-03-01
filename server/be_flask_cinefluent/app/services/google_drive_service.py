@@ -96,7 +96,7 @@ def stream_file_content(file_id, start_byte, end_byte, chunk_size=None):
             if response.status_code in [200, 206]:
                 # Yield small chunks (32KB) directly to client as they arrive
                 # This drastically reduces TTFB (Time To First Byte)
-                for chunk in response.iter_content(chunk_size=256*1024):
+                for chunk in response.iter_content(chunk_size=128*1024):
                     if chunk:
                         yield chunk
             else:

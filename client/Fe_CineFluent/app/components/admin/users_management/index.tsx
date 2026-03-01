@@ -4,7 +4,7 @@ import Empty_State from "@/app/components/empty_state";
 import AdminCreateUser from "@/app/components/admin/admin_create_user";
 import { useAuth } from "@/app/lib/hooks/useAuth";
 import { I_data_users, Ty_User } from "@/app/lib/types/users";
-import { Users } from "lucide-react";
+import { Edit2, Trash2, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import "react-loading-skeleton/dist/skeleton.css";
 import { Pagination } from "@/app/components/pagination";
@@ -20,13 +20,6 @@ type Props = {
 
 function Users_Management({ data_users }: Props) {
   const { token } = useAuth();
-  const titleTable = [
-    { id: 1, name: "Tên người dùng" },
-    { id: 2, name: "Email" },
-    { id: 6, name: "Status" },
-    { id: 7, name: "Vai Trò" },
-    { id: 8, name: "Hành Động" },
-  ];
 
   const [data, setData] = useState<Ty_User[]>(data_users.users || []);
   const [pagination, setPagination] = useState(data_users.pagination);
@@ -46,7 +39,8 @@ function Users_Management({ data_users }: Props) {
       if (!response.ok) {
         throw new Error("Failed to fetch users");
       }
-      const newData = await response.json();
+      const res = await response.json();
+      const newData = res.data || res;
       setData(newData.users);
       setPagination(newData.pagination);
     } catch (error) {
@@ -95,7 +89,8 @@ function Users_Management({ data_users }: Props) {
       if (!response.ok) {
         throw new Error("Failed to fetch users");
       }
-      const newData = await response.json();
+      const res = await response.json();
+      const newData = res.data || res;
       console.log("♻️ Fetched new page data:", newData.users);
       setData(newData?.users);
       setPagination(newData?.pagination);
@@ -176,14 +171,21 @@ function Users_Management({ data_users }: Props) {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {titleTable?.map((item) => (
-                <th
-                  key={item.id}
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  {item.name}
-                </th>
-              ))}
+              <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Tên người dùng
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Email
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Vai trò
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Hành động
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -214,14 +216,14 @@ function Users_Management({ data_users }: Props) {
                   {item?.roles[0]?.name.toUpperCase() || "chưa cập nhật!"}
                 </td>
 
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap flex items-center gap-2 justify-end">
                   <button
                     className="text-blue-500 hover:text-blue-700 mr-2 cursor-pointer"
                     onClick={() => {
                       setIsEditProfile(k);
                     }}
                   >
-                    Xem
+                    <Edit2 size={18} />
                   </button>
                   <button
                     className={`text-red-500 hover:text-red-700 cursor-pointer ${
@@ -232,7 +234,7 @@ function Users_Management({ data_users }: Props) {
                     onClick={() => setConfirmDelete(item?.id)}
                     disabled={item?.roles[0]?.name === "admin"}
                   >
-                    Xóa
+                    <Trash2 size={18} />
                   </button>
                   {ConfirmDelete === item?.id && (
                     <div>
@@ -258,11 +260,7 @@ function Users_Management({ data_users }: Props) {
               </tr>
             ))}
             {!isLoading && data?.length === 0 && (
-              <Empty_State
-                title="người dùng"
-                icon={Users}
-                colSpan={titleTable.length}
-              />
+              <Empty_State title="người dùng" icon={Users} colSpan={5} />
             )}
           </tbody>
         </table>

@@ -3,56 +3,62 @@ import re
 
 def parse_srt(content: str):
     """
-    Parse nội dung file SRT thành list subtitles.
-    
-    Input (file SRT):
-        1
-        00:00:04,260 --> 00:00:19,190
-        <i>Là Sam đây, Chúc các bạn xem phim vui vẻ!</i>
-        
-        2
-        00:00:35,750 --> 00:00:39,350
-        Ngày xửa ngày xưa,
-        Vào một ngày tươi đẹp
-    
-    Output:
-        [
-            {"index": 1, "start_time": 4.26, "end_time": 19.19, "text": "Là Sam đây..."},
-            {"index": 2, "start_time": 35.75, "end_time": 39.35, "text": "Ngày xửa..."},
-        ]
+    Parse nội dung file SRT cực kỳ bền bỉ (Robust).
+    Xử lý tốt mọi loại xuống dòng (\n, \r\n, \r) và khoảng trắng dư thừa.
     """
-    # Pattern để match từng block subtitle
-    pattern = r'(\d+)\s*\n(\d{2}:\d{2}:\d{2}[,\.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,\.]\d{3})\s*\n(.*?)(?=\n\n\d+\s*\n|\n\n|\Z)'
+    # Bước 1: Chuẩn hóa xuống dòng về \n
+    content = content.replace('\r\n', '\n').replace('\r', '\n')
     
-    matches = re.findall(pattern, content, re.DOTALL)
+    # Bước 2: Chia file thành các khối (đoạn phụ đề)
+    # Các đoạn thường cách nhau bởi ít nhất một dòng trống (\n\n)
+    blocks = re.split(r'\n\s*\n', content.strip())
     
     subtitles = []
-    for match in matches:
-        index, start, end, text = match
+    for block in blocks:
+        lines = [line.strip() for line in block.strip().split('\n') if line.strip()]
+        if len(lines) < 2:
+            continue
+            
+        # Tìm dòng chứa thời gian (có ký hiệu -->)
+        timing_idx = -1
+        for i, line in enumerate(lines):
+            if '-->' in line:
+                timing_idx = i
+                break
         
-        # Xóa HTML tags như <i>, </i>, <b>, </b>...
+        if timing_idx == -1:
+            continue
+            
+        timing_line = lines[timing_idx]
+        # Text là tất cả các dòng sau dòng timing
+        text_lines = lines[timing_idx + 1:]
+        text = ' '.join(text_lines).strip()
+        
+        # Cleanup text: Xóa HTML tags
         text = re.sub(r'<[^>]+>', '', text)
-        # Xóa ký tự đặc biệt và trim
-        text = text.replace('\r', '').strip()
-        # Gộp nhiều dòng thành một (thay \n bằng space)
-        text = ' '.join(text.split('\n'))
         
-        if text:  # Chỉ thêm nếu có text
+        if not text:
+            continue
+
+        # Parse timing dùng regex để an tâm về format
+        time_matches = re.findall(r'(\d{1,2}:\d{2}:\d{2}[,\.]\d{3})', timing_line)
+        if len(time_matches) >= 2:
+            start_str = time_matches[0]
+            end_str = time_matches[1]
+            
             subtitles.append({
-                "index": int(index),
-                "start_time": time_to_seconds(start.replace('.', ',')),
-                "end_time": time_to_seconds(end.replace('.', ',')),
+                "index": len(subtitles) + 1,
+                "start_time": time_to_seconds(start_str),
+                "end_time": time_to_seconds(end_str),
                 "text": text
             })
-    
+            
     return subtitles
 
 
 def time_to_seconds(time_str: str) -> float:
     """
-    Chuyển đổi timestamp SRT sang giây.
-    
-    Ví dụ: "00:01:23,456" → 83.456 (giây)
+    Chuyển đổi timestamp SRT/VTT sang giây (Hỗ trợ cả , và .)
     """
     time_str = time_str.replace(',', '.')
     parts = time_str.split(':')
@@ -61,3 +67,59 @@ def time_to_seconds(time_str: str) -> float:
     seconds = float(parts[2])
     
     return hours * 3600 + minutes * 60 + seconds
+
+
+def parse_vtt(content: str):
+    """
+    Parse nội dung file WebVTT cực kỳ bền bỉ.
+    """
+    content = content.replace('\r\n', '\n').replace('\r', '\n')
+    
+    # Xóa header WEBVTT
+    content = re.sub(r'^WEBVTT.*?\n', '', content, flags=re.IGNORECASE)
+    
+    blocks = re.split(r'\n\s*\n', content.strip())
+    
+    subtitles = []
+    for block in blocks:
+        lines = [line.strip() for line in block.strip().split('\n') if line.strip()]
+        if not lines:
+            continue
+            
+        timing_idx = -1
+        for i, line in enumerate(lines):
+            if '-->' in line:
+                timing_idx = i
+                break
+                
+        if timing_idx == -1:
+            continue
+            
+        timing_line = lines[timing_idx]
+        text_lines = lines[timing_idx + 1:]
+        text = ' '.join(text_lines).strip()
+        text = re.sub(r'<[^>]+>', '', text)
+        
+        if not text:
+            continue
+
+        # VTT có thể có timing dạng 00:00.000 hoặc 00:00:00.000
+        raw_times = re.findall(r'(\d{0,2}:?\d{2}:\d{2}\.\d{3})', timing_line)
+        
+        if len(raw_times) >= 2:
+            start_str = raw_times[0]
+            end_str = raw_times[1]
+            
+            # Nếu thiếu phần giờ (HH:), ta thêm vào
+            def format_vtt_time(ts):
+                if ts.count(':') == 1: return f"00:{ts}"
+                return ts
+
+            subtitles.append({
+                "index": len(subtitles) + 1,
+                "start_time": time_to_seconds(format_vtt_time(start_str)),
+                "end_time": time_to_seconds(format_vtt_time(end_str)),
+                "text": text
+            })
+            
+    return subtitles

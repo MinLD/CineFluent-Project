@@ -12,6 +12,9 @@ import {
   EyeOff,
 } from "lucide-react";
 import { tokenizeText } from "@/app/utils/tokenizeText";
+import { findCurrentSubtitleIndex } from "@/app/utils/binarySearch";
+import { SubtitleItem } from "./SubtitleItem";
+import { SubtitleSkeleton } from "./SubtitleSkeleton";
 
 interface Subtitle {
   id: number;
@@ -34,11 +37,13 @@ interface SubtitlePanelProps {
   onToggleBlur?: () => void;
   onSeek?: (time: number) => void;
   isExternalMovie?: boolean;
+  activeIndex?: number;
 }
 
 export function SubtitlePanel({
   subtitles,
   currentTime = 0,
+  activeIndex = -1,
   onSubtitleClick,
   onPracticeClick,
   handleShowShadowingWhenClickSub,
@@ -48,75 +53,66 @@ export function SubtitlePanel({
   isBlurred = false,
   onToggleBlur,
 }: SubtitlePanelProps) {
-  const adjustedTime = currentTime;
+  const currentIndex =
+    activeIndex !== -1
+      ? activeIndex
+      : findCurrentSubtitleIndex(subtitles, currentTime);
 
-  // Tìm subtitle hiện tại bằng Binary Search - O(log n) thay vì O(n)
-  // Tìm subtitle có start_time gần nhất (nhưng không vượt quá) thời gian hiện tại
-  const findCurrentSubtitleIndex = (time: number): number => {
-    if (subtitles.length === 0) return -1;
-
-    let left = 0;
-    let right = subtitles.length - 1;
-    let result = -1;
-
-    while (left <= right) {
-      const mid = Math.floor((left + right) / 2);
-
-      // Nếu subtitle này đã bắt đầu (start_time <= time)
-      if (subtitles[mid].start_time <= time) {
-        result = mid; // Lưu lại vị trí này
-        left = mid + 1; // Tìm subtitle muộn hơn ở bên phải
-      } else {
-        right = mid - 1; // Tìm subtitle sớm hơn ở bên trái
-      }
-    }
-
-    return result;
-  };
-
-  const currentIndex = findCurrentSubtitleIndex(adjustedTime);
-
-  const subtitleRefs = useRef<(HTMLDivElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // [VTT_OPTIMIZATION] Virtual Scroll State
+  const [scrollTop, setScrollTop] = useState(0);
+  const ITEM_HEIGHT = 100; // Chiều cao ước tính của 1 câu sub
+  const CONTAINER_HEIGHT = 600; // Chiều cao khung nhìn
+  const BUFFER = 5; // Số lượng câu sub vẽ thêm ở trên/dưới để cuộn mượt
 
   // Reset scroll to top on mount
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollTop = 0;
-
-      setTimeout(() => {
-        if (containerRef.current) {
-          containerRef.current.scrollTop = 0;
-        }
-      }, 100);
     }
   }, []);
 
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  };
+
+  // Tính toán vùng hiển thị
+  const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER);
+  const endIndex = Math.min(
+    subtitles.length - 1,
+    Math.floor((scrollTop + CONTAINER_HEIGHT) / ITEM_HEIGHT) + BUFFER,
+  );
+
+  const visibleSubtitles = subtitles.slice(startIndex, endIndex + 1);
+  const totalHeight = subtitles.length * ITEM_HEIGHT;
+  const offsetY = startIndex * ITEM_HEIGHT;
+
   useEffect(() => {
     if (currentIndex >= 0 && containerRef.current && currentTime > 0) {
-      const subtitleElement = subtitleRefs.current[currentIndex];
       const container = containerRef.current;
 
-      if (!subtitleElement) return;
+      // [VTT_OPTIMIZATION] Tính toán vị trí cuộn cho Virtual List
+      const targetScroll =
+        currentIndex * ITEM_HEIGHT - CONTAINER_HEIGHT / 2 + ITEM_HEIGHT / 2;
 
-      const containerRect = container.getBoundingClientRect();
-      const subtitleRect = subtitleElement.getBoundingClientRect();
-
-      const containerCenter = containerRect.height / 2;
-      const subtitleCenter =
-        subtitleRect.top - containerRect.top + subtitleRect.height / 2;
-      const scrollOffset = subtitleCenter - containerCenter;
-
-      container.scrollBy({
-        top: scrollOffset,
+      container.scrollTo({
+        top: targetScroll,
         behavior: "smooth",
       });
     }
-  }, [currentIndex, currentTime]);
+  }, [currentIndex]); // Chỉ scroll khi đổi câu thoại
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
+    if (!seconds || isNaN(seconds)) return "0:00";
+
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
+
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
@@ -158,110 +154,39 @@ export function SubtitlePanel({
       </div>
 
       {/* Subtitle List */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto">
-        <div className="p-4 space-y-2 ">
-          {subtitles.map((subtitle, index) => (
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto scrollbar-hide"
+      >
+        {subtitles.length === 0 ? (
+          <SubtitleSkeleton />
+        ) : (
+          <div className="relative p-4" style={{ height: `${totalHeight}px` }}>
             <div
-              key={subtitle.id}
-              ref={(el) => {
-                subtitleRefs.current[index] = el;
-              }}
-              onClick={() => onSubtitleClick?.(subtitle.start_time)}
-              className={`p-3 rounded-lg cursor-pointer transition-all duration-200 relative group ${
-                index === currentIndex
-                  ? "bg-blue-600 text-white shadow-lg"
-                  : "bg-slate-800 hover:bg-slate-700 text-slate-300"
-              }`}
+              className="space-y-2 absolute left-4 right-4"
+              style={{ transform: `translateY(${offsetY}px)` }}
             >
-              {/* Practice Button (Top Right) */}
-              <div className="flex flex-col gap-2  absolute top-2 right-2 z-10">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleShowShadowingWhenClickSub?.(
-                      subtitle.start_time,
-                      subtitle,
-                    );
-                  }}
-                  className={`hover:cursor-pointer p-1.5 rounded-full transition-all opacity-0 group-hover:opacity-100 ${
-                    index === currentIndex
-                      ? "bg-white/20 hover:bg-white/30 text-white"
-                      : "bg-slate-600 hover:bg-blue-500 text-slate-200 hover:text-white"
-                  }`}
-                  title="Luyện nói câu này"
-                >
-                  <div className="bg-white-500 rounded-full p-1">
-                    <Mic className="w-3 h-3 text-white" />
-                  </div>
-                </button>
-                {/* NÚT DICTATION (MỚI) */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDictationClick?.(subtitle);
-                  }}
-                  className={`hover:cursor-pointer p-1.5 rounded-full transition-all opacity-0 group-hover:opacity-100 ${
-                    index === currentIndex
-                      ? "bg-white/20 hover:bg-white/30 text-white"
-                      : "bg-slate-600 hover:bg-blue-500 text-slate-200 hover:text-white"
-                  }`}
-                  title="Luyện viết câu này"
-                >
-                  <div className="bg-white-500 rounded-full p-1">
-                    <Keyboard className="w-3 h-3 text-white" />
-                  </div>
-                </button>
-              </div>
-
-              {/* English */}
-              <p
-                className={`font-medium mb-1 pr-8 text-white/90 transition-all duration-300 ${
-                  isBlurred ? "blur-[5px] select-none hover:blur-0" : ""
-                }`}
-              >
-                {tokenizeText(subtitle.content_en)?.map((token, i) => {
-                  if (token.isWord) {
-                    return (
-                      <span
-                        key={i}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onWordClick?.(token.text, subtitle.content_en);
-                        }}
-                        className="inline-block cursor-pointer transition-colors duration-200 border-b-2 border-transparent hover:border-yellow-400 hover:text-yellow-400 pb-[1px]"
-                      >
-                        {token.text}
-                      </span>
-                    );
-                  } else {
-                    return <span key={i}>{token.text}</span>;
-                  }
-                })}
-              </p>
-
-              {/* Vietnamese */}
-              {subtitle.content_vi && (
-                <p
-                  className={`text-sm transition-all duration-300 ${
-                    index === currentIndex ? "text-blue-100" : "text-slate-400"
-                  } ${isBlurred ? "blur-[5px] select-none hover:blur-0" : ""}`}
-                >
-                  {subtitle.content_vi}
-                </p>
-              )}
-
-              {/* Timestamp */}
-              <div
-                className={`flex items-center gap-1 mt-2 text-xs ${
-                  index === currentIndex ? "text-blue-200" : "text-slate-500"
-                }`}
-              >
-                <Clock className="w-3 h-3" />
-                <span>{formatTime(subtitle.start_time)}</span>
-              </div>
+              {visibleSubtitles.map((subtitle, idx) => {
+                const actualIndex = startIndex + idx;
+                return (
+                  <SubtitleItem
+                    key={subtitle.id}
+                    subtitle={subtitle}
+                    index={actualIndex}
+                    currentIndex={currentIndex}
+                    isBlurred={isBlurred}
+                    onSubtitleClick={onSubtitleClick}
+                    onPracticeClick={handleShowShadowingWhenClickSub}
+                    onDictationClick={onDictationClick}
+                    onWordClick={onWordClick}
+                    formatTime={formatTime}
+                  />
+                );
+              })}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

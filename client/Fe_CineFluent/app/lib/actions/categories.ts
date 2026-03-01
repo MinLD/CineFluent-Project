@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import {
   Api_create_category,
   Api_update_category,
@@ -29,6 +29,7 @@ export async function createCategoryAction(prevState: any, formData: FormData) {
     const result = await Api_create_category(formData, token);
 
     // ✅ Revalidate cache after mutation
+    revalidateTag("categories", "default");
     revalidatePath("/admin");
 
     return {
@@ -63,6 +64,7 @@ export async function updateCategoryAction(prevState: any, formData: FormData) {
     const result = await Api_update_category(categoryId, formData, token);
 
     // ✅ Revalidate affected paths
+    revalidateTag("categories", "default");
     revalidatePath("/admin");
 
     return {
@@ -92,6 +94,7 @@ export async function deleteCategoryAction(categoryId: string, token: string) {
     await Api_delete_category(categoryId, token);
 
     // ✅ Revalidate affected paths
+    revalidateTag("categories", "default");
     revalidatePath("/admin");
 
     return {
@@ -121,6 +124,7 @@ export async function createSkillAction(prevState: any, formData: FormData) {
     // ✅ API call on server side (credentials safe)
     const result = await Api_create_skill(formData, token);
     // ✅ Revalidate cache after mutation
+    revalidateTag("skills", "default");
     revalidatePath("/admin");
     return {
       success: true,
@@ -152,6 +156,7 @@ export async function updateSkillAction(prevState: any, formData: FormData) {
     formData.delete("skillId");
     const result = await Api_update_skill(skillId, formData, token);
     // ✅ Revalidate affected paths
+    revalidateTag("skills", "default");
     revalidatePath("/admin");
     return {
       success: true,
@@ -180,6 +185,7 @@ export async function deleteSkillAction(skillId: string, token: string) {
     }
     await Api_delete_skill(skillId, token);
     // ✅ Revalidate affected paths
+    revalidateTag("skills", "default");
     revalidatePath("/admin");
     return {
       success: true,
@@ -222,20 +228,10 @@ export async function getSkillsByCategoryAction(categoryId: string) {
   }
 }
 
-export async function loadMoreCategoriesAction(
-  page: number,
-  per_page: number,
-  search: string = "",
-  sort: string = "",
-) {
+export async function loadMoreCategoriesAction(page: number, per_page: number) {
   try {
     const { SSR_Categories } = await import("@/app/lib/data/categories");
-    const { categories, pagination } = await SSR_Categories(
-      page,
-      per_page,
-      search,
-      sort,
-    );
+    const { categories, pagination } = await SSR_Categories(page, per_page);
     return {
       success: true,
       data: categories,
@@ -254,7 +250,9 @@ export async function getAllCategoriesAction() {
   try {
     const { SSR_Categories } = await import("@/app/lib/data/categories");
     // Fetch a large number to ensure we get most categories for the dropdown
-    const { categories } = await SSR_Categories(1, 100, "", "");
+    const { categories } = await SSR_Categories(1, 100);
+    revalidatePath("/admin");
+    revalidateTag("categories", "default");
     return {
       success: true,
       data: categories,

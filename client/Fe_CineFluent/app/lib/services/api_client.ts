@@ -25,7 +25,7 @@ export const API_BASE_URL = BeUrl;
 
 const axiosClientConfig = {
   baseURL: BeUrl,
-  timeout: 30000,
+  timeout: 60000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -34,6 +34,23 @@ const axiosClientConfig = {
 export const axiosClient = axios.create(axiosClientConfig);
 
 if (typeof window !== "undefined") {
+  // Thêm Token vào mỗi Request (Client-side)
+  axiosClient.interceptors.request.use((config) => {
+    // Ưu tiên token truyền tay (nếu có)
+    if (config.headers.Authorization) return config;
+
+    // Lấy token mới nhất từ cookie (dành cho Client-side)
+    const token = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("access_token="))
+      ?.split("=")[1];
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
+
   axiosClient.interceptors.response.use(
     (response) => {
       return response;
@@ -47,9 +64,20 @@ if (typeof window !== "undefined") {
           "Token hết hạn hoặc không hợp lệ, đang tiến hành làm mới... (Client-side)",
         );
         try {
+          // Dùng FeApiProxyUrl hoặc đường dẫn tương đối chuẩn để hỗ trợ deploy
           const res = await axios.post(`${FeApiProxyUrl}/auth/refreshtoken`);
           console.log("Đã làm mới token thành công:", res.data);
           const newAccessToken = res.data.access_token;
+
+          // Phát sự kiện để cập nhật AuthContext nếu đang ở phía Client
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("auth-token-refreshed", {
+                detail: { token: newAccessToken },
+              }),
+            );
+          }
+
           originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
           return axiosClient(originalRequest);
         } catch (errorRefresh) {

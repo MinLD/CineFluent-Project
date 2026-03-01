@@ -91,8 +91,14 @@ export function CustomVideoControls({
   // Format thời gian: mm:ss
   const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds)) return "0:00";
-    const mins = Math.floor(seconds / 60);
+
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
+
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
@@ -147,7 +153,7 @@ export function CustomVideoControls({
   }, [isDragging, duration, onSeek]);
 
   return (
-    <div className="bg-slate-900 p-4 border-t border-slate-700/30 relative z-[11]">
+    <div className="bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 pb-6 pt-12 relative z-[11]">
       {/* Progress Bar */}
       <div
         id="progress-bar"
@@ -282,19 +288,19 @@ export function CustomVideoControls({
 
             {/* Settings Menu */}
             {showSettingsMenu && (
-              <div className="absolute bottom-full mb-2 right-0 bg-black/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/10 overflow-y-auto max-h-[400px] min-w-[300px] z-[5] animate-fade-in">
+              <div className="absolute bottom-full mb-2 right-0 bg-black/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/10 overflow-y-auto max-h-[180px] sm:max-h-[300px] min-w-[220px] sm:min-w-[300px] z-[5] animate-fade-in scrollbar-thin scrollbar-thumb-white/20">
                 {/* --- MAIN MENU --- */}
                 {activeMenu === "main" && (
-                  <div className="py-2">
+                  <div className="py-1 sm:py-2">
                     {/* Subtitle Mode */}
-                    <div className="px-4 py-2 flex items-center justify-between border-b border-white/10 mb-2">
-                      <span className="text-sm font-medium text-white">
+                    <div className="px-3 sm:px-4 py-1.5 sm:py-2 flex items-center justify-between border-b border-white/10 mb-1 sm:mb-2 gap-2">
+                      <span className="text-xs sm:text-sm font-medium text-white whitespace-nowrap">
                         Phụ đề
                       </span>
                       <div className="flex bg-white/10 rounded overflow-hidden">
                         <button
                           onClick={() => onSubtitleModeChange("both")}
-                          className={`px-3 py-1 text-xs ${
+                          className={`px-2 sm:px-3 py-1 text-[10px] sm:text-xs transition-colors ${
                             subtitleMode === "both"
                               ? "bg-blue-600 text-white"
                               : "text-gray-300 hover:bg-white/10"
@@ -304,7 +310,7 @@ export function CustomVideoControls({
                         </button>
                         <button
                           onClick={() => onSubtitleModeChange("en")}
-                          className={`px-3 py-1 text-xs ${
+                          className={`px-2 sm:px-3 py-1 text-[10px] sm:text-xs transition-colors ${
                             subtitleMode === "en"
                               ? "bg-blue-600 text-white"
                               : "text-gray-300 hover:bg-white/10"
@@ -314,7 +320,7 @@ export function CustomVideoControls({
                         </button>
                         <button
                           onClick={() => onSubtitleModeChange("off")}
-                          className={`px-3 py-1 text-xs ${
+                          className={`px-2 sm:px-3 py-1 text-[10px] sm:text-xs transition-colors ${
                             subtitleMode === "off"
                               ? "bg-blue-600 text-white"
                               : "text-gray-300 hover:bg-white/10"
@@ -328,15 +334,17 @@ export function CustomVideoControls({
                     {/* Quality */}
                     <button
                       onClick={() => setActiveMenu("quality")}
-                      className="w-full px-4 py-3 text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
                     >
-                      <div className="flex items-center gap-3">
-                        <Settings className="w-4 h-4" />
-                        <span>Chất lượng hình ảnh</span>
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span>Hình ảnh</span>
                       </div>
                       <div className="flex items-center gap-1 text-gray-400">
-                        <span>{currentQuality || "Auto"}</span>
-                        <ChevronRight className="w-4 h-4" />
+                        <span className="text-[10px] sm:text-xs">
+                          {currentQuality || "Auto"}
+                        </span>
+                        <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
                       </div>
                     </button>
 
@@ -345,20 +353,22 @@ export function CustomVideoControls({
                       onClick={() =>
                         onShowSubtitlePanelChange(!showSubtitlePanel)
                       }
-                      className="w-full px-4 py-3 text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
                     >
-                      <div className="flex items-center gap-3">
-                        <List className="w-4 h-4" />
-                        <span>Danh sách phụ đề</span>
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <List className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span>DS phụ đề</span>
                       </div>
                       <div
-                        className={`w-10 h-5 rounded-full transition-colors relative ${
+                        className={`w-8 sm:w-10 h-4 sm:h-5 rounded-full transition-colors relative ${
                           showSubtitlePanel ? "bg-blue-500" : "bg-gray-600"
                         }`}
                       >
                         <div
-                          className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${
-                            showSubtitlePanel ? "left-[22px]" : "left-0.5"
+                          className={`w-3 h-3 sm:w-4 sm:h-4 bg-white rounded-full absolute top-[2px] transition-all ${
+                            showSubtitlePanel
+                              ? "left-[18px] sm:left-[22px]"
+                              : "left-[2px]"
                           }`}
                         />
                       </div>
@@ -368,13 +378,13 @@ export function CustomVideoControls({
 
                 {/* --- QUALITY MENU --- */}
                 {activeMenu === "quality" && (
-                  <div className="py-2">
+                  <div className="py-1 sm:py-2">
                     <button
                       onClick={() => setActiveMenu("main")}
-                      className="w-full px-4 py-2 text-sm text-left text-gray-300 hover:text-white hover:bg-white/10 flex items-center gap-2 border-b border-white/10 mb-1"
+                      className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-left text-gray-300 hover:text-white hover:bg-white/10 flex items-center gap-2 border-b border-white/10 mb-1"
                     >
-                      <ChevronLeft className="w-4 h-4" />
-                      quay lại
+                      <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+                      Quay lại
                     </button>
                     {(qualities || [])
                       .filter((q) => q !== "small" && q !== "tiny")
@@ -385,7 +395,7 @@ export function CustomVideoControls({
                             onQualityChange?.(q);
                             setShowSettingsMenu(false);
                           }}
-                          className="w-full px-4 py-2.5 text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
+                          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
                         >
                           <span>
                             {q === "auto"
@@ -403,7 +413,7 @@ export function CustomVideoControls({
                                         : q}
                           </span>
                           {currentQuality === q && (
-                            <Check className="w-4 h-4 text-blue-500" />
+                            <Check className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" />
                           )}
                         </button>
                       ))}

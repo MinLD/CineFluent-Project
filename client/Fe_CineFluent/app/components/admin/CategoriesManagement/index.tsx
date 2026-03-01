@@ -4,7 +4,7 @@ import Empty_State from "@/app/components/empty_state";
 import AdminCreateUser from "@/app/components/admin/admin_create_user";
 import { useAuth } from "@/app/lib/hooks/useAuth";
 import { I_data_users, Ty_User } from "@/app/lib/types/users";
-import { AlignStartVertical, Users } from "lucide-react";
+import { AlignStartVertical, Edit2, Trash2, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
@@ -29,13 +29,6 @@ type Props = {
 };
 function CategoriesManagement({ data_categories }: Props) {
   const { token } = useAuth();
-  const titleTable = [
-    { id: 1, name: "Ảnh danh mục" },
-    { id: 2, name: "Tên danh mục" },
-    { id: 3, name: "Slug danh mục" },
-    { id: 4, name: "Mô tả danh mục" },
-    { id: 5, name: "Hành Động" },
-  ];
 
   const [data, setData] = useState<I_category[]>(
     data_categories.categories || [],
@@ -60,8 +53,9 @@ function CategoriesManagement({ data_categories }: Props) {
       if (!response.ok) {
         throw new Error("Failed to fetch categories");
       }
-      const newData = await response.json();
-      console.log(newData);
+      const res = await response.json();
+      const newData = res.data || res;
+      console.log("Search result:", newData);
       setData(newData.categories || []);
       setPagination(newData.pagination);
     } catch (error) {
@@ -105,12 +99,9 @@ function CategoriesManagement({ data_categories }: Props) {
         ? `${FeApiProxyUrl}/categories/search?keyword=${searchQuery}&page=${page}&per_page=3`
         : `${FeApiProxyUrl}/categories?page=${page}&per_page=3`;
       const response = await fetch(url);
-      console.log("Fetching page:", url);
-      if (!response.ok) {
-        throw new Error("Failed to fetch categories");
-      }
-      const { categories, pagination } = await response.json();
-      console.log("newData", { categories, pagination });
+      const res = await response.json();
+      const dataObj = res.data || res;
+      const { categories, pagination } = dataObj;
       setData(categories || []);
       setPagination(pagination);
     } catch (error) {
@@ -198,14 +189,21 @@ function CategoriesManagement({ data_categories }: Props) {
         <table className="min-w-full text-left border-collapse">
           <thead>
             <tr>
-              {titleTable.map((title) => (
-                <th
-                  key={title.id}
-                  className="px-3 py-3 border-b border-gray-200 bg-gray-50 whitespace-nowrap"
-                >
-                  {title.name}
-                </th>
-              ))}
+              <th className="px-6 py-3 border-b border-gray-200 bg-gray-50 whitespace-nowrap text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Ảnh
+              </th>
+              <th className="px-6 py-3 border-b border-gray-200 bg-gray-50 whitespace-nowrap text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Tên danh mục
+              </th>
+              <th className="px-6 py-3 border-b border-gray-200 bg-gray-50 whitespace-nowrap text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Slug
+              </th>
+              <th className="px-6 py-3 border-b border-gray-200 bg-gray-50 whitespace-nowrap text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Mô tả
+              </th>
+              <th className="px-6 py-3 border-b border-gray-200 bg-gray-50 whitespace-nowrap text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Hành động
+              </th>
             </tr>
           </thead>
           <tbody className="divide-gray-200 divide-y">
@@ -236,25 +234,20 @@ function CategoriesManagement({ data_categories }: Props) {
                   <td className="px-6 py-4 max-w-[200px] whitespace-normal break-words">
                     {category.description || ""}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap space-x-2">
-                    {/* Temporarily hidden - Skills being replaced with Videos */}
-                    {/* <Link
-                      href={`/admin?tab=Skills_Management&categoryId=${category.id}&nameCategory=${category.name}`}
-                      className="bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 cursor-pointer inline-block text-sm"
-                    >
-                      Chi tiết
-                    </Link> */}
+                  <td className="px-6 py-4 whitespace-nowrap flex items-center gap-2 justify-end">
                     <button
-                      onClick={() => setConfirmDelete(category.id)}
-                      className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 cursor-pointer"
+                      className="cursor-pointer text-blue-600 hover:text-blue-800 transition-colors p-1"
+                      title="Chỉnh sửa"
+                      onClick={() => setIsEdit(parseInt(category.id))}
                     >
-                      Xóa
+                      <Edit2 size={18} />
                     </button>
                     <button
-                      onClick={() => setIsEdit(parseInt(category.id))}
-                      className="bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 cursor-pointer"
+                      className="cursor-pointer text-red-600 hover:text-red-800 transition-colors p-1"
+                      title="Xóa danh mục"
+                      onClick={() => setConfirmDelete(category.id)}
                     >
-                      Sửa
+                      <Trash2 size={18} />
                     </button>
                     {ConfirmDelete === category.id && (
                       <ModalConfirm
@@ -283,7 +276,7 @@ function CategoriesManagement({ data_categories }: Props) {
               <Empty_State
                 title="Không có danh mục thử thách nào"
                 icon={AlignStartVertical}
-                colSpan={titleTable.length}
+                colSpan={5}
               />
             )}
           </tbody>

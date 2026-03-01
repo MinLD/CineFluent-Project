@@ -2,41 +2,28 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Play, Eye, Youtube, HardDrive, Globe } from "lucide-react";
+import { Play } from "lucide-react";
+import { I_Video } from "@/app/lib/types/video";
 
 interface VideoCardProps {
-  video: {
-    id: number;
-    title: string;
-    thumbnail_url: string;
-    source_type: "youtube" | "drive" | "local";
-    level: string;
-    slug: string;
-    view_count: number;
-    category?: { name: string };
-  };
+  video: I_Video;
 }
 
 export function VideoCard({ video }: VideoCardProps) {
-  const sourceIcons = {
-    youtube: Youtube,
-    drive: HardDrive,
-    local: Globe,
-  };
-
-  const SourceIcon = sourceIcons[video.source_type] || Globe;
-
+  const image_url = video.backdrop_url
+    ? video.backdrop_url
+    : video.thumbnail_url;
   return (
     <Link href={`/studies/movies/${video.slug}`}>
-      <div className="flex-shrink-0 w-[280px] group relative overflow-hidden rounded-lg bg-slate-800 border border-slate-700  transition-all duration-300 cursor-pointer">
+      <div className="flex-shrink-0 w-[280px] group relative overflow-hidden rounded-lg transition-all duration-300 cursor-pointer">
         {/* Thumbnail */}
-        <div className="relative aspect-video overflow-hidden bg-slate-900">
-          {video.thumbnail_url ? (
+        <div className="rounded-2xl relative aspect-video overflow-hidden bg-slate-900">
+          {image_url ? (
             <Image
-              src={video.thumbnail_url}
+              src={image_url}
               alt={video.title}
               fill
-              className="object-cover group-hover:scale-110 transition-transform duration-300"
+              className=" object-cover group-hover:scale-110 hover:blur-sm transition-transform duration-300"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -52,16 +39,26 @@ export function VideoCard({ video }: VideoCardProps) {
           </div>
 
           {/* Source Badge */}
-          <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full p-2">
-            <SourceIcon className="w-4 h-4 text-white" />
+          <div className="absolute top-2 right-2">
+            <span className="text-white text-[12px] font-semibold">HD</span>
           </div>
         </div>
 
         {/* Info */}
-        <div className="p-4">
-          <h3 className="text-white font-semibold line-clamp-2 mb-2 group-hover:text-blue-400 transition">
-            {video.title}
-          </h3>
+        <div className="mt-5">
+          <div>
+            <h3 className="text-[18px] text-white font-semibold line-clamp-1 mb-2 group-hover:text-blue-400 transition">
+              {video.original_title}
+            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-[12px] text-gray-400 font-semibold line-clamp-1 mb-2 ">
+                {video.title}
+              </h3>
+              <h3 className="text-[12px] text-gray-400 font-semibold line-clamp-1 mb-2 ">
+                {video.release_year}
+              </h3>
+            </div>
+          </div>
         </div>
       </div>
     </Link>

@@ -123,32 +123,32 @@ def get_quick_dictionary_service(word: str, context_sentence: str):
         return {"success": False, "error": error_str}
 
 
-def suggest_video_category(title: str, description: str):
-
-    category_schema = {
+def suggest_multiple_categories(title: str, year: str = None):
+  
+    category_list_schema = {
         "type": "OBJECT",
         "properties": {
-            "category": {"type": "STRING"}
+            "categories": {
+                "type": "ARRAY",
+                "items": {"type": "STRING"}
+            }
         },
-        "required": ["category"]
+        "required": ["categories"]
     }
 
-    # Cắt ngắn description nếu quá dài để tiết kiệm token
-    short_desc = description[:500] if description else ""
-
+    year_str = f" ({year})" if year else ""
     prompt = f"""
-    Title: "{title}"
-    Description: "{short_desc}"
+    Title: "{title}{year_str}"
 
-    Suggest ONE Vietnamese category name.
+    Hãy gợi ý danh sách các thể loại phim (Genres/Themes) phù hợp nhất bằng tiếng Việt.
+    
+    Quy định:
+    - Trả về danh sách từ 2-5 thể loại quan trọng nhất.
+    - Tên thể loại phải phổ thông, ngắn gọn (1-3 từ).
+    - Ví dụ: "Hành động", "Viễn tưởng", "Lãng mạn", "Hoạt hình", "Gia đình", "Kinh dị".
+    - Viết hoa chữ cái đầu cho mỗi từ.
 
-    Rules:
-    - 1–3 words
-    - Generic category
-    - Capitalized
-    - No punctuation
-
-    Return JSON only.
+    Chỉ trả về JSON.
     """
 
     try:
@@ -156,18 +156,23 @@ def suggest_video_category(title: str, description: str):
             model="gemini-2.5-flash",
             contents=[prompt],
             config=types.GenerateContentConfig(
-                temperature=0.3,
+                temperature=0.4,
                 response_mime_type="application/json",
-                response_schema=category_schema
+                response_schema=category_list_schema
             )
         )
 
         result = json.loads(response.text)
-        return {"success": True, "data": result}
+        categories = result.get("categories", [])
+        print(f"✅ AI Suggested Categories: {categories}")
+        return {"success": True, "data": categories}
 
     except Exception as e:
-        print(f"Lỗi AI Category Suggestion: {str(e)}")
-        return {"success": False, "error": str(e)}
+        print(f"❌ Lỗi AI Multiple Category Suggestion: {str(e)}")
+        if 'response' in locals() and hasattr(response, 'text'):
+            print(f"🔍 AI Raw Response: {response.text}")
+        # Fallback cơ bản
+        return {"success": False, "error": str(e), "data": ["Phim"]}
 
 
 def translate_batch(texts: list[str], target_lang: str = 'vi') -> list[str]:

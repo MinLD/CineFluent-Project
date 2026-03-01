@@ -39,13 +39,6 @@ export default function SidebarNavList({ data }: Props) {
         <LayoutDashboard size={20} /> <p>Thống kê</p>
       </Link>
 
-      <Link
-        href="/studies/external-movies"
-        className="flex gap-2 items-center p-3 rounded px-2 hover:cursor-pointer hover:bg-[#2a303d] transition-colors mt-2 text-gray-300 hover:text-white"
-      >
-        <Search size={20} /> <p>Tìm Phim Mới</p>
-      </Link>
-
       <div className="flex flex-col gap-2 p-2 mt-4">
         {data.map((i) => (
           <div key={i.title}>

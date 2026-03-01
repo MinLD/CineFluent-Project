@@ -72,11 +72,11 @@ export const data_sibar_admin = [
         name: "Danh mục phim",
         icon: Video,
       },
-      // {
-      //   id: "Skills_Management",
-      //   name: "Quản lý Video",
-      //   icon: BookImage
-      // },
+      {
+        id: "Phim_Management",
+        name: "Quản lý Phim",
+        icon: BookImage,
+      },
     ],
   },
 ];

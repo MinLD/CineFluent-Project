@@ -1,6 +1,7 @@
 "use client";
 
 import { tokenizeText } from "@/app/utils/tokenizeText";
+import { findCurrentSubtitleIndex } from "@/app/utils/binarySearch";
 import { useMemo } from "react";
 
 interface Subtitle {
@@ -18,6 +19,7 @@ interface SubtitleSettings {
 
 interface SubtitleOverlayProps {
   subtitles: Subtitle[];
+  activeIndex?: number;
   currentTime: number;
   subtitleMode: "both" | "en" | "off";
   onWordClick: (word: string, context: string) => void;
@@ -27,6 +29,7 @@ interface SubtitleOverlayProps {
 
 export function SubtitleOverlay({
   subtitles,
+  activeIndex = -1,
   currentTime,
   subtitleMode,
   onWordClick,
@@ -37,24 +40,13 @@ export function SubtitleOverlay({
   const currentSubtitle = useMemo(() => {
     if (subtitles.length === 0) return null;
 
-    let left = 0;
-    let right = subtitles.length - 1;
-    let result = -1;
+    const idx =
+      activeIndex !== -1
+        ? activeIndex
+        : findCurrentSubtitleIndex(subtitles, currentTime);
+    if (idx === -1) return null;
 
-    while (left <= right) {
-      const mid = Math.floor((left + right) / 2);
-
-      if (subtitles[mid].start_time <= currentTime) {
-        result = mid;
-        left = mid + 1;
-      } else {
-        right = mid - 1;
-      }
-    }
-
-    if (result === -1) return null;
-
-    const subtitle = subtitles[result];
+    const subtitle = subtitles[idx];
     // Kiểm tra xem subtitle có đang trong khoảng thời gian hiển thị không
     if (
       currentTime >= subtitle.start_time &&
@@ -64,7 +56,7 @@ export function SubtitleOverlay({
     }
 
     return null;
-  }, [subtitles, currentTime]);
+  }, [subtitles, activeIndex, currentTime]);
 
   const tokens_sub = useMemo(() => {
     if (!currentSubtitle) return [];
@@ -82,14 +74,14 @@ export function SubtitleOverlay({
   }[settings.fontSize];
 
   return (
-    <div className="absolute bottom-5 left-0 right-0 flex justify-center px-4 pointer-events-none z-[10]">
+    <div className="absolute bottom-20 left-0 right-0 flex justify-center px-1 sm:px-4 pointer-events-none z-[10]">
       <div
-        className="backdrop-blur-sm rounded-lg px-6 py-3 max-w-[85%] shadow-2xl border border-white/10 pointer-events-auto transition-all hover:bg-black/95"
+        className="backdrop-blur-sm rounded-lg px-2 sm:px-6 py-1 sm:py-3 max-w-[85%] shadow-2xl border border-white/10 pointer-events-auto transition-all hover:bg-black/95"
         style={{ backgroundColor: `rgba(0, 0, 0, ${settings.bgOpacity})` }}
       >
         {/* Tiếng Anh - Dòng chính */}
         <p
-          className={`text-white font-semibold text-center leading-relaxed text-shadow-lg ${fontSizeClass} ${
+          className={`text-xs sm:text-sm md:text-base text-white font-semibold text-center leading-relaxed text-shadow-lg ${fontSizeClass} ${
             isBlurred
               ? "blur-[5px] select-none hover:blur-0 transition-all"
               : ""
@@ -122,7 +114,7 @@ export function SubtitleOverlay({
         {/* Tiếng Việt - Dòng phụ (chỉ hiển thị khi mode là "both") */}
         {subtitleMode === "both" && currentSubtitle.content_vi && (
           <p
-            className={`text-yellow-300 text-sm md:text-base text-center mt-1 leading-relaxed text-shadow-md ${
+            className={`text-yellow-300 text-xs md:text-base text-center mt-1 leading-relaxed text-shadow-md ${
               isBlurred
                 ? "blur-[5px] select-none hover:blur-0 transition-all"
                 : ""

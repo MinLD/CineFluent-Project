@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { Api_Admin_User, Api_Delete_User } from "@/app/lib/services/user";
 import { I_FormUser } from "@/app/lib/types/users";
 import { BeUrl } from "@/app/lib/services/api_client";
@@ -28,6 +28,7 @@ export async function createUserAction(prevState: any, formData: FormData) {
     const result = await Api_Admin_User(token, userData);
 
     // ✅ Revalidate cache
+    revalidateTag("users", "default");
     revalidatePath("/admin");
 
     return {
@@ -62,6 +63,7 @@ export async function deleteUserAction(userId: string, token: string) {
     await Api_Delete_User(userId, token);
 
     // ✅ Revalidate affected paths
+    revalidateTag("users", "default");
     revalidatePath("/admin");
 
     return {
@@ -109,6 +111,7 @@ export async function updateUserAction(prevState: any, formData: FormData) {
     const result = await response.json();
 
     // ✅ Revalidate cache after mutation
+    revalidateTag("users", "default");
     revalidatePath("/admin");
 
     return {
@@ -146,6 +149,7 @@ export async function updateUserProfileAction(formData: FormData) {
     const result = await response.json();
 
     // ✅ Revalidate cache after mutation
+    revalidateTag("users", "default");
     revalidatePath("/");
 
     return {

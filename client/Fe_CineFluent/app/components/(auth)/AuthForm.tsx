@@ -158,20 +158,26 @@ export default function Login() {
           setIsLoading(true);
 
           const fullName = values.fullName?.trim().replace(/\s+/g, " ");
-          const res = await Api_Register(
-            fullName || "",
-            values.email,
-            values.password,
+          const res = await axios.post(
+            `${FeApiProxyUrl}/users`,
+            {
+              fullname: fullName,
+              email: values.email,
+              password: values.password,
+            },
+            {
+              headers: { "Content-Type": "application/json" },
+            },
           );
           console.log(res);
           toast.success(res.data.message || "Đăng ký thành công");
           setIsLogin("login");
         } catch (err: any) {
-          console.log(err.response.data.response.message);
+          console.error("Registration failed:", err);
           if (err instanceof AxiosError && err.response) {
-            toast.error(
-              err.response.data.response.message || "Đăng ký thất bại",
-            );
+            const errorData = err.response.data;
+            const message = errorData.message || "Đăng ký thất bại";
+            toast.error(message);
           } else {
             toast.error("Lỗi không xác định, vui lòng thử lại.");
           }
@@ -237,7 +243,7 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="hover:cursor-pointer scale-100 hover:scale-101 w-full bg-[#16a34a] text-white py-3 rounded-lg hover:from-[#16a34a] hover:to-[#16a34a] transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="hover:cursor-pointer scale-100 hover:scale-101 w-full bg-blue-600 text-white py-3 rounded-lg hover:from-green-600 hover:to-green-600 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <div className="flex items-center justify-center">
@@ -263,7 +269,7 @@ export default function Login() {
                     onClick={() =>
                       setIsLogin(isLogin === "login" ? "register" : "login")
                     }
-                    className="ml-1 text-[#16a34a] hover:text-[#16a34a] font-medium hover:cursor-pointer"
+                    className="ml-1 text-blue-600 hover:text-blue-700 font-medium hover:cursor-pointer"
                   >
                     {isLogin === "login" ? "Đăng ký" : "Đăng nhập"}
                   </button>

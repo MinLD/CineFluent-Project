@@ -15,7 +15,7 @@ def create():
         req_data = CreateCategoryRequest(**form_data)
         avatar = request.files.get('avatar')
         new_cat = create_category(req_data, avatar)
-        return success_response(data=CategoryResponse().dump(new_cat), code=201)
+        return success_response(data=CategoryResponse().dump(new_cat), code=201, message="Category created successfully")
     except Exception as e:
         return error_response(str(e), 400)
 
@@ -23,7 +23,7 @@ def create():
 def get_all():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
-    return success_response(data=get_all_categoies(page, per_page))
+    return success_response(data=get_all_categoies(page, per_page), message="Get all categories successfully", code=201)
 
 @category_bp.route('/<int:cat_id>', methods=['PATCH'])
 def update(cat_id):
@@ -32,7 +32,7 @@ def update(cat_id):
         req_data = UpdateCategoryRequest(**form_data)
         avatar = request.files.get('avatar')
         updated_cat = update_category(cat_id, req_data, avatar)
-        return success_response(data=CategoryResponse().dump(updated_cat))
+        return success_response(data=CategoryResponse().dump(updated_cat), message="Category updated successfully", code=201)
     except Exception as e:
         return error_response(str(e), 400)
 
@@ -41,12 +41,12 @@ def search():
     keyword = request.args.get('keyword')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
-    return success_response(data=search_category(keyword, page, per_page))
+    return success_response(data=search_category(keyword, page, per_page), message="Search categories successfully", code=201)
 
 @category_bp.route('/<int:cat_id>', methods=['DELETE'])
 def delete(cat_id):
     try:
         delete_category(cat_id)
-        return success_response(message="Category deleted")
+        return success_response(message="Category deleted", code=201)
     except Exception as e:
         return error_response(str(e), 400)

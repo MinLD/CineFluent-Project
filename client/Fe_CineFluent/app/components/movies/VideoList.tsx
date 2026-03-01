@@ -1,33 +1,52 @@
 "use client";
 
 import { VideoCard } from "@/app/components/movies/VideoCard";
+import { TopMovieCard } from "@/app/components/movies/TopMovieCard";
 import { useQuery } from "@tanstack/react-query";
 import { getVideosAction } from "@/app/lib/actions/videos";
 import { Loader2 } from "lucide-react";
 import { I_Video } from "@/app/lib/types/video";
 import MySlider from "@/app/components/my_slide";
 import { SwiperSlide } from "swiper/react";
+import { useEffect, useState } from "react";
+import { VideoListSkeleton } from "@/app/components/movies/skeletons/VideoListSkeleton";
 
 interface VideoListProps {
   initialVideos: I_Video[];
+  source_type?: string;
+  isRanked?: boolean;
+  categoryId?: string | number;
+  releaseYear?: string | number;
 }
 
-export function VideoList({ initialVideos }: VideoListProps) {
+export function VideoList({
+  initialVideos,
+  source_type,
+  isRanked = false,
+  categoryId,
+  releaseYear,
+}: VideoListProps) {
   const { data, isLoading } = useQuery({
-    queryKey: ["videos"],
-    queryFn: () => getVideosAction(),
-    initialData: { videos: initialVideos, total: initialVideos.length },
-    staleTime: 0, // Always refetch when invalidated
+    queryKey: ["videos", source_type, categoryId, releaseYear],
+    queryFn: () => getVideosAction(1, 12, categoryId, releaseYear, source_type),
+    initialData: {
+      videos: initialVideos,
+      total: initialVideos.length,
+      total_pages: 1,
+    },
+    staleTime: 60 * 1000, // Keep data fresh for 1 minute
   });
 
   const videos = data?.videos || [];
+  const [isMounted, setIsMounted] = useState(false);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
-    );
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Tránh FOUC do SSR/Hydration Mismatch bằng cách hiện tĩnh bộ xương ngoài lúc sơ khởi
+  if (isLoading || !isMounted) {
+    return <VideoListSkeleton isRanked={isRanked} />;
   }
 
   if (videos.length === 0) {
@@ -43,19 +62,24 @@ export function VideoList({ initialVideos }: VideoListProps) {
 
   return (
     <>
-      <div className="w-full">
+      <div className={`w-full ${isRanked ? "" : ""}`}>
         <MySlider
           swiperOptions={{
             autoplay: false,
+            loop: !isRanked,
             navigation: false,
             slidesPerView: 1.2,
             spaceBetween: 10,
           }}
           className="cursor-pointer"
         >
-          {videos.map((video: any) => (
+          {videos.map((video: any, index: number) => (
             <SwiperSlide key={video.id}>
-              <VideoCard video={video} />
+              {isRanked ? (
+                <TopMovieCard video={video} rank={index + 1} />
+              ) : (
+                <VideoCard video={video} />
+              )}
             </SwiperSlide>
           ))}
         </MySlider>

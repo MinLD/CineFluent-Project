@@ -25,6 +25,7 @@ def search_user():
     return success_response(data=response_data, code=200, message="Search user successfully")
 @users_bp.route('/', methods=['GET'])
 @Role_required(role='admin')
+@jwt_required()
 def get_users():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
@@ -32,6 +33,7 @@ def get_users():
 
 @users_bp.route('/admin', methods=['POST'])
 @Role_required(role='admin')
+@jwt_required()
 def create_admin():
     request_data = CreateUserRequest(**request.get_json())
     new_user = create_user_by_admin(request_data)

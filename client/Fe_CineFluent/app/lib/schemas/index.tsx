@@ -104,3 +104,22 @@ export {
   SHCHEMA_SkillUser,
   SHCHEMA_SkillUserUpdate,
 };
+
+export const SCHEMA_video_import = z.object({
+  source_type: z.enum(["youtube", "local"]),
+  url: z.string().trim().url("Vui lòng nhập link YouTube hợp lệ").optional(),
+  drive_id: z.string().trim().min(1, "Vui lòng nhập File ID").optional(),
+  level: z.enum(["Beginner", "Intermediate", "Advanced", "Expert"], {
+    required_error: "Vui lòng chọn trình độ",
+  }),
+});
+
+export const SCHEMA_video_update = z.object({
+  title: z.string().trim().min(5, "Tên phim phải từ 5 ký tự"),
+  level: z.enum(["Beginner", "Intermediate", "Advanced", "Expert"], {
+    required_error: "Vui lòng chọn trình độ",
+  }),
+  category_ids: z
+    .array(z.number())
+    .min(1, "Vui lòng chọn ít nhất một danh mục"),
+});

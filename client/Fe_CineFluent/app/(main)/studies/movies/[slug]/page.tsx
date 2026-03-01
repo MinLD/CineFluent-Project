@@ -1,5 +1,4 @@
 import { VideoPlayerWrapper } from "@/app/components/movies/VideoPlayerWrapper";
-import { VideoInfo } from "@/app/components/movies/VideoInfo";
 import { SSR_Video_Slug } from "@/app/lib/data/video";
 
 import { notFound } from "next/navigation";
@@ -16,19 +15,11 @@ export default async function VideoDetailPage({
   if (!video) {
     return notFound();
   }
-  
 
   return (
     <>
-      <div className="min-h-screen bg-slate-900">
-        {/* Video Player with Synced Subtitles */}
-
+      <div className="bg-slate-900 min-h-screen mb-50 sm:mb-0">
         <VideoPlayerWrapper video={video} />
-
-        {/* Video Info */}
-        {/* <div className="mt-6">
-          <VideoInfo video={video} />
-        </div> */}
       </div>
     </>
   );

@@ -1,9 +1,52 @@
+import os
+import json
+import tempfile
+import time
+import shutil
+import glob
+import traceback
 import yt_dlp
+from datetime import timedelta
 from slugify import slugify
-from ..models.models_model import Video, Subtitle, Category
-from ..extensions import db
-from ..schemas.video_schema import VideoSchema
+from deep_translator import GoogleTranslator
 
+# Global Translator instance
+translator = GoogleTranslator(source='en', target='vi')
+
+def translate_with_retry(text, max_retries=3):
+    """Dịch với retry logic cho rate limiting"""
+    for attempt in range(max_retries):
+        try:
+            return translator.translate(text)
+        except Exception as e:
+            error_str = str(e)
+            if '429' in error_str or 'Too Many Requests' in error_str or 'rate' in error_str.lower():
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) * 2  # Exponential backoff: 2s, 4s, 8s
+                    print(f"      ⚠️ Rate limited, waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                else:
+                    raise Exception(f"Rate limit exceeded after {max_retries} retries")
+            else:
+                raise
+    return text
+
+from ..models.models_model import Video, Subtitle, Category
+from ..extensions import db, socketio
+from ..schemas.video_schema import VideoSchema
+from ..utils.subtitle_utils import parse_vtt
+from .tmdb_service import search_movie_by_tmdb
+from .learning_service import suggest_multiple_categories
+from ..schemas.video_schema import (
+    ImportYoutubeRequest, 
+    ImportLocalRequest, 
+    ImportLocalManualRequest,
+    UpdateVideoRequest
+)
+
+# --- CONFIGURATION & PATHS ---
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+COOKIE_PATH = os.path.abspath(os.path.join(CURRENT_DIR, "../utils/www.youtube.com_cookies.txt"))
 
 def fetch_youtube_metadata(url):
     """Sử dụng yt-dlp để lấy Title và Thumbnail từ link YouTube."""
@@ -35,32 +78,57 @@ def create_unique_slug(model, base_title, max_length=100):
     return slug
 
 
-def import_youtube_video(url, level, user_id):
+def import_youtube_video(user_id, data: ImportYoutubeRequest):
+    """
+    Hàm này được chuyển thành Generator để yield thông báo tiến độ.
+    """
+    url = data.url
+    yield {"status": "processing", "message": "Đang lấy thông tin video từ YouTube...", "step": 1}
     meta = fetch_youtube_metadata(url)
     yt_id = meta['youtube_id']
+    canonical_url = f"https://www.youtube.com/watch?v={yt_id}"
 
-    # 1. Xử lý Category
+    # 1. Xử lý Categories
+    youtube_category = Category.query.filter_by(slug='youtube').first()
+    if not youtube_category:
+        youtube_category = Category(
+            name='YouTube', 
+            slug='youtube', 
+            description='Danh mục tổng hợp các video từ YouTube'
+        )
+        db.session.add(youtube_category)
+        db.session.flush()
+    
+    categories = [youtube_category]
+    if data.category_ids:
+        additional_cats = Category.query.filter(Category.id.in_(data.category_ids)).all()
+        for cat in additional_cats:
+            if cat.id != youtube_category.id:
+                categories.append(cat)
 
+    # 2. Kiểm tra Video tồn tại chưa (Sử dụng Canonical URL hoặc YouTube ID)
+    video = Video.query.filter(
+        (Video.source_url == canonical_url) | 
+        (Video.source_url.contains(yt_id))
+    ).first()
 
-    # 2. Kiểm tra Video tồn tại chưa
-    video = Video.query.filter_by(youtube_id=yt_id).first()
     if video:
-        return video
+        # Cập nhật thêm categories nếu chưa có
+        for cat in categories:
+            if cat not in video.categories:
+                video.categories.append(cat)
+        
+        # Nếu URL cũ không phải canonical, cập nhật lại luôn cho đẹp
+        if video.source_url != canonical_url:
+            video.source_url = canonical_url
+            
+        db.session.commit()
+        yield {"status": "completed", "message": "Video này đã tồn tại trong hệ thống. Đã cập nhật danh mục.", "video_id": video.id}
+        return
 
     try:
-        import os
-        import yt_dlp
-        import json
-        import tempfile
-
-        # Tìm file cookies
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        cookie_path = os.path.join(current_dir, "../utils/www.youtube.com_cookies.txt")
-        cookie_path = os.path.abspath(cookie_path)
-
         # Tạo thư mục tạm
         temp_dir = tempfile.mkdtemp()
-
         # Cấu hình yt-dlp
         ydl_opts = {
             'skip_download': True,
@@ -73,8 +141,8 @@ def import_youtube_video(url, level, user_id):
             'no_warnings': True,
         }
 
-        if os.path.exists(cookie_path):
-            ydl_opts['cookiefile'] = cookie_path
+        if os.path.exists(COOKIE_PATH):
+            ydl_opts['cookiefile'] = COOKIE_PATH
             print(f"Using cookies")
 
         # Download subtitles và lấy metadata
@@ -116,6 +184,7 @@ def import_youtube_video(url, level, user_id):
 
             print()  # Empty line for readability
 
+            yield {"status": "processing", "message": f"Đang tải phụ đề ({en_type}/{vi_type})...", "step": 2}
             # Download subtitles
             ydl.download([url])
 
@@ -144,15 +213,13 @@ def import_youtube_video(url, level, user_id):
         en_file = os.path.join(temp_dir, f"{yt_id}.en.json3")
         vi_file = os.path.join(temp_dir, f"{yt_id}.vi.json3")
 
-        # Nếu không có .en.json3, thử tìm .en-*.json3
+        # Tìm file subtitle đã download
         if not os.path.exists(en_file):
-            import glob
             en_files = glob.glob(os.path.join(temp_dir, f"{yt_id}.en*.json3"))
             if en_files:
                 en_file = en_files[0]
 
         if not os.path.exists(vi_file):
-            import glob
             vi_files = glob.glob(os.path.join(temp_dir, f"{yt_id}.vi*.json3"))
             if vi_files:
                 vi_file = vi_files[0]
@@ -171,49 +238,22 @@ def import_youtube_video(url, level, user_id):
         # Dịch subtitle bằng Google Translate API (BATCH MODE - Tối ưu động)
         print("Translating subtitles using Google Translate (Dynamic Batch mode)...")
         
-        from deep_translator import GoogleTranslator
-        import time
-        
-        translator = GoogleTranslator(source='en', target='vi')
-        
+        # Tái sử dụng translator toàn cục
         # Tính batch size động dựa trên độ dài text
         total_chars = sum(len(item['text']) for item in transcript)
         avg_chars = total_chars / len(transcript) if transcript else 50
         
-        MAX_CHARS_PER_BATCH = 4500  # An toàn dưới giới hạn 5000
+        MAX_CHARS_PER_BATCH = 4500
         SEPARATOR = ' |||SUBTITLE_SEP||| '
         SEPARATOR_LENGTH = len(SEPARATOR)
         
-        # Tính batch size tối ưu
         BATCH_SIZE = int(MAX_CHARS_PER_BATCH / (avg_chars + SEPARATOR_LENGTH))
-        BATCH_SIZE = max(10, min(BATCH_SIZE, 200))  # Giới hạn 10-200
-        
-        print(f"   📊 Total subtitles: {len(transcript)}")
-        print(f"   📏 Average chars per subtitle: {avg_chars:.1f}")
-        print(f"   🎯 Optimal batch size: {BATCH_SIZE}")
+        BATCH_SIZE = max(10, min(BATCH_SIZE, 200))
         
         transcript_vi = []
         total_batches = (len(transcript) + BATCH_SIZE - 1) // BATCH_SIZE
-        print(f"   📦 Total batches: {total_batches}")
-        
-        def translate_with_retry(text, max_retries=3):
-            """Dịch với retry logic cho rate limiting"""
-            for attempt in range(max_retries):
-                try:
-                    return translator.translate(text)
-                except Exception as e:
-                    error_str = str(e)
-                    # Kiểm tra rate limiting
-                    if '429' in error_str or 'Too Many Requests' in error_str or 'rate' in error_str.lower():
-                        if attempt < max_retries - 1:
-                            wait_time = (2 ** attempt) * 2  # Exponential backoff: 2s, 4s, 8s
-                            print(f"      ⚠️ Rate limited, waiting {wait_time}s before retry...")
-                            time.sleep(wait_time)
-                        else:
-                            raise Exception(f"Rate limit exceeded after {max_retries} retries")
-                    else:
-                        raise
-            raise Exception("Translation failed after max retries")
+        print(f"   🎯 Optimal batch size: {BATCH_SIZE}, Total batches: {total_batches}")
+        yield {"status": "processing", "message": f"Đang dịch {len(transcript)} câu phụ đề (chia làm {total_batches} đợt)...", "step": 3}
         
         for batch_idx in range(0, len(transcript), BATCH_SIZE):
             batch_num = (batch_idx // BATCH_SIZE) + 1
@@ -260,6 +300,7 @@ def import_youtube_video(url, level, user_id):
                     })
                 
                 print(f"      ✅ Batch {batch_num}/{total_batches} completed!")
+                yield {"status": "processing", "message": f"Đã dịch xong {min(batch_idx + BATCH_SIZE, len(transcript))}/{len(transcript)} câu...", "step": 3}
                 
                 # Thêm delay nhỏ giữa các batch để tránh rate limit
                 if batch_num < total_batches:
@@ -286,49 +327,27 @@ def import_youtube_video(url, level, user_id):
         print(f"✅ Translated {len(transcript_vi)}/{len(transcript)} subtitles successfully (Dynamic Batch mode)")
 
         # Cleanup temp files
-        import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
 
-        from .learning_service import suggest_video_category
-
-        # 3. Xử lý Category (AI Suggestion) - moved here to save tokens
-        print(f"Asking AI to categorize: {meta['title']}...")
-        ai_result = suggest_video_category(meta['title'], meta.get('description', ''))
+        # 3. Khởi tạo Object Video
+        raw_title = meta['title']
+        translated_title = translate_with_retry(raw_title)
         
-        if ai_result.get('success'):
-            category_name = ai_result['data'].get('category', 'General')
-            print(f"   AI Suggested: {category_name}")
-        else:
-            print(f"   AI Error, fallback to General. Error: {ai_result.get('error')}")
-            category_name = 'General'
-
-        # Tạo Slug từ tên AI gợi ý
-        category_slug = slugify(category_name)
-        
-        # Tìm trong DB bằng SLUG
-        category = Category.query.filter_by(slug=category_slug).first()
-        
-        if not category:
-            print(f"   Creating new category: {category_name} ({category_slug})")
-            category = Category(name=category_name, slug=category_slug)
-            db.session.add(category)
-            db.session.flush()
-        else:
-            print(f"   Found existing category: {category.name}")
-
-
-        # 4. Khởi tạo Object Video
         video = Video(
             source_type='youtube',
-            source_url=url,
-            youtube_id=yt_id,
-            title=meta['title'],
+            source_url=canonical_url,
+            original_title=raw_title,
+            title=translated_title,
+            description=meta.get('description'),
             thumbnail_url=meta['thumbnail'],
-            category_id=category.id,
-            level=level,
-            slug = create_unique_slug(Video, meta['title']),
-            added_by_user_id=user_id
+            level=data.level,
+            slug = create_unique_slug(Video, translated_title), # Dùng title dịch cho slug
+            author = meta.get('author'),
+            country = meta.get('country'),
+            status = data.status
         )
+        # Gán danh sách categories (N-N)
+        video.categories = categories
         db.session.add(video)
         db.session.flush()
 
@@ -349,18 +368,228 @@ def import_youtube_video(url, level, user_id):
         print(f"📊 Summary: EN={en_type}, VI={vi_type}\n")
 
         db.session.commit()
-        return video
+        
+        # [VTT_OPTIMIZATION] Tự động xuất file VTT ngay sau khi lưu DB thành công
+        yield {"status": "processing", "message": "Đang khởi tạo file phụ đề VTT tối ưu...", "step": 4}
+        export_subtitle_to_vtt(video.id)
+
+        yield {"status": "completed", "message": "Hoàn tất! Video đã sẵn sàng trên hệ thống.", "video_id": video.id}
+        return
 
     except Exception as e:
         db.session.rollback()
-        import traceback
         print(f"❌ Error: {str(e)}")
         print(traceback.format_exc())
+        print(traceback.format_exc())
         raise ValueError(f"Lỗi nhập liệu từ YouTube: {str(e)}")
-def get_all_videos(page, per_page, category_id=None):
+
+def import_local_video_by_tmdb(user_id, data: ImportLocalRequest): 
+    tmdb_id = data.tmdb_id
+    movie = search_movie_by_tmdb(tmdb_id)       
+    if not movie:
+        raise ValueError(f"Không tìm thấy phim với TMDB ID {tmdb_id}")
+
+    # 0. Kiểm tra Video đã tồn tại theo TMDB ID chưa
+    if Video.query.filter_by(tmdb_id=tmdb_id).first():
+        raise ValueError(f"Phim với TMDB ID {tmdb_id} đã tồn tại")
+
+    
+    # 1. AI gợi ý Categories dựa trên Tiêu đề và Năm
+    ai_res = suggest_multiple_categories(movie['title'], movie['year'])
+    category_names = ai_res.get("data", []) if ai_res.get("success") else ["Phim"]
+    
+    # Chuẩn hóa tên Category (Viết hoa chữ cái đầu)
+    categories = []
+    for name in category_names:
+        name = name.strip().title()
+        slug = slugify(name)
+        if not slug: continue
+        
+        # Tìm hoặc tạo mới Category
+        category = Category.query.filter_by(slug=slug).first()
+        if not category:
+            category = Category(
+                name=name,
+                slug=slug,
+                description=f"Phim thuộc thể loại {name}"
+            )
+            db.session.add(category)
+            db.session.flush() # Lấy ID ngay lập tức
+        
+        if category not in categories:
+            categories.append(category)
+
+    # 2. Tạo đối tượng Video mới nếu chưa có
+    video = Video(
+        source_type='local',
+        tmdb_id=tmdb_id,
+        title=movie['title'],
+        original_title=movie.get('original_title'),
+        description=movie['overview'],
+        author=movie.get('author') or "Unknown",
+        country=movie.get('country') or "Unknown",
+        release_year=movie.get('year'),
+        thumbnail_url=movie['poster_path'],
+        backdrop_url=movie['backdrop_path'],
+        level='Intermediate', 
+        slug=create_unique_slug(Video, movie['title']),
+        view_count=0,
+        runtime=movie.get('runtime'),
+        status='private' # Mặc định là private để admin duyệt trước
+    )
+    video.categories = categories # Gán quan hệ n-n
+    
+    db.session.add(video)
+    db.session.commit()
+ 
+    return video
+
+def import_video_local(user_id, data: ImportLocalManualRequest):
+    # 1. Xử lý Categories từ danh sách ID
+    categories = []
+    if data.category_ids:
+        categories = Category.query.filter(Category.id.in_(data.category_ids)).all()
+
+    # 2. Tạo đối tượng Video bằng cách truy cập trực tiếp thuộc tính của Model
+    video = Video(
+        tmdb_id=data.tmdb_id,
+        source_type='local',
+        title=data.title,
+        original_title=data.original_title,
+        description=data.description,
+        author=data.author or "Unknown",
+        country=data.country or "Unknown",
+        release_year=data.release_year,
+        thumbnail_url=data.thumbnail_url,
+        backdrop_url=data.backdrop_url,
+        runtime=data.runtime,
+        level=data.level,
+        status=data.status,
+        slug=create_unique_slug(Video, data.title),
+        view_count=0
+    )
+    
+    # Gán categories (N-N)
+    if categories:
+        video.categories = categories
+    
+    db.session.add(video)
+    db.session.commit()
+
+    return video
+
+def save_subtitles_from_content(video_id, en_content, vi_content=None):
+    """
+    Parse và lưu phụ đề từ nội dung text (SRT hoặc VTT) vào database.
+    Tự động nhận diện định dạng dựa trên nội dung.
+    """
+    from ..utils.subtitle_utils import parse_vtt, parse_srt
+    
+    video = Video.query.get(video_id)
+    if not video:
+        raise ValueError(f"Video ID {video_id} không tồn tại")
+
+    # Xóa sub cũ
+    Subtitle.query.filter_by(video_id=video_id).delete()
+
+    # Nhận diện định dạng cho file Anh
+    if en_content:
+        parser_en = parse_vtt if 'WEBVTT' in en_content.upper() else parse_srt
+        en_subs = parser_en(en_content)
+    else:
+        en_subs = []
+    
+    # Nhận diện định dạng cho file Việt
+    vi_subs = []
+    if vi_content:
+        parser_vi = parse_vtt if 'WEBVTT' in vi_content.upper() else parse_srt
+        vi_subs = parser_vi(vi_content)
+
+    # Sắp xếp để đảm bảo logic so sánh thời gian chính xác
+    en_subs.sort(key=lambda x: x['start_time'])
+    vi_subs.sort(key=lambda x: x['start_time'])
+    # Nếu người dùng chỉ upload file Việt, dùng file Việt làm trục chính
+    if not en_subs and vi_subs:
+        en_subs = vi_subs
+        vi_subs = []
+
+    count = 0
+    en_midpoints = [(sub['start_time'] + sub['end_time']) / 2.0 for sub in en_subs]
+    vi_matched_texts = [[] for _ in en_subs]
+
+    en_idx = 0
+    num_en = len(en_subs)
+
+    for vi_sub in vi_subs:
+        if num_en == 0:
+            break
+            
+        vi_mid = (vi_sub['start_time'] + vi_sub['end_time']) / 2.0
+        
+        # Tiến en_idx để tìm midpoint gần nhất
+        while en_idx < num_en - 1:
+            dist_curr = abs(en_midpoints[en_idx] - vi_mid)
+            dist_next = abs(en_midpoints[en_idx + 1] - vi_mid)
+            if dist_next <= dist_curr:
+                en_idx += 1
+            else:
+                break
+        
+        if en_idx < num_en:
+            # Ngưỡng 10 giây (nếu lệch quá 10s so với câu EN gần nhất thì bỏ qua)
+            if abs(en_midpoints[en_idx] - vi_mid) <= 10.0:
+                vi_matched_texts[en_idx].append(vi_sub['text'])
+
+    for i, en_sub in enumerate(en_subs):
+        best_vi_text = " ".join(vi_matched_texts[i])
+
+        # Trường hợp chỉ có 1 file (đã map vi_subs sang en_subs ở trên)
+        if not en_content and vi_content:
+            en_text = ""
+            vi_text = en_sub['text']
+        else:
+            en_text = en_sub['text']
+            vi_text = best_vi_text
+
+        new_sub = Subtitle(
+            video_id=video_id,
+            start_time=en_sub['start_time'],
+            end_time=en_sub['end_time'],
+            content_en=en_text,
+            content_vi=vi_text
+        )
+        db.session.add(new_sub)
+        count += 1
+
+    db.session.commit()
+    
+    # Xuất ra file VTT tổng hợp cho Frontend
+    export_subtitle_to_vtt(video_id)
+    
+    return count
+
+
+def get_all_videos(page, per_page, category_id=None, release_year=None, source_type=None, status='public', keyword=None):
     query = Video.query
+    
+    if status and status != 'all':
+        query = query.filter_by(status=status)
+    
+    if keyword:
+        # Tìm kiếm theo tiêu đề (không phân biệt hoa thường)
+        query = query.filter(Video.title.ilike(f"%{keyword}%"))
+
     if category_id:
-        query = query.filter_by(category_id=category_id)
+        # Lọc theo Many-to-Many
+        query = query.filter(Video.categories.any(id=category_id))
+        
+    if release_year:
+        query = query.filter(Video.release_year == release_year)
+    
+    if source_type and source_type in ['youtube', 'local']:
+        query = query.filter_by(source_type=source_type)
+        
+    query = query.order_by(Video.id.desc())
 
     paginated_result = query.paginate(page=page, per_page=per_page, error_out=False)
 
@@ -374,3 +603,105 @@ def get_all_videos(page, per_page, category_id=None):
             "has_prev": paginated_result.has_prev
         }
     }
+
+def get_video_by_id(video_id):
+    return Video.query.get(video_id)
+
+def update_video(video_id, data: UpdateVideoRequest):
+    video = Video.query.get(video_id)
+    if not video:
+        raise ValueError('Không tìm thấy video')
+
+    # Chuyển Model thành dict, loại bỏ các giá trị None (Chỉ update những gì được gửi)
+    update_data = data.model_dump(exclude_unset=True)
+
+    if 'title' in update_data:
+        video.title = update_data['title']
+        video.slug = create_unique_slug(Video, update_data['title'])
+    
+    if 'category_ids' in update_data:
+        categories = Category.query.filter(Category.id.in_(update_data['category_ids'])).all()
+        video.categories = categories
+
+    # Tự động cập nhật các field còn lại nếu có trong Model
+    for field, value in update_data.items():
+        if field not in ['title', 'category_ids'] and hasattr(video, field):
+            setattr(video, field, value)
+
+    try:
+        db.session.commit()
+        return video
+    except Exception as e:
+        db.session.rollback()
+        raise e
+
+def delete_all_subtitles(video_id):
+    """Xóa toàn bộ phụ đề của một video."""
+    video = Video.query.get(video_id)
+    if not video:
+        raise ValueError(f"Video ID {video_id} không tồn tại")
+    
+    Subtitle.query.filter_by(video_id=video_id).delete()
+    video.subtitle_vtt_url = None
+    db.session.commit()
+    
+    # Xóa file vật lý nếu có
+    storage_dir = os.path.abspath(os.path.join(os.getcwd(), 'storage', 'subtitles'))
+    file_path = os.path.join(storage_dir, f"video_{video_id}.vtt")
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        
+    return True
+
+# [VTT_OPTIMIZATION] Cung cấp hàm xuất sub ra file vật lý để tăng hiệu năng
+def export_subtitle_to_vtt(video_id):
+    import os
+    from datetime import timedelta
+    from ..models.models_model import Video, Subtitle
+
+    video = Video.query.get(video_id)
+    if not video:
+        raise ValueError(f"Video ID {video_id} không tồn tại")
+
+    # 1. Tạo thư mục lưu trữ nếu chưa có
+    storage_dir = os.path.abspath(os.path.join(os.getcwd(), 'storage', 'subtitles'))
+    os.makedirs(storage_dir, exist_ok=True)
+    
+    file_name = f"video_{video_id}.vtt"
+    file_path = os.path.join(storage_dir, file_name)
+
+    # 2. Lấy danh sách phụ đề sắp xếp theo thời gian
+    subs = Subtitle.query.filter_by(video_id=video_id).order_by(Subtitle.start_time.asc()).all()
+    
+    def format_vtt_time(seconds):
+        td = timedelta(seconds=seconds)
+        total_seconds = int(td.total_seconds())
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        secs = total_seconds % 60
+        millis = int((td.total_seconds() - total_seconds) * 1000)
+        return f"{hours:02}:{minutes:02}:{secs:02}.{millis:03}"
+
+    # 3. Ghi file theo chuẩn WebVTT
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write("WEBVTT\n\n")
+        for i, sub in enumerate(subs):
+            start = format_vtt_time(sub.start_time)
+            end = format_vtt_time(sub.end_time)
+            # Ghi cả tiếng Anh và tiếng Việt (tùy nhu cầu UI, ở đây ta gộp hoặc tách tùy ý)
+            # Frontend thường cần text đơn thuần, ta có thể format đặc biệt nếu muốn
+            f.write(f"{i+1}\n")
+            f.write(f"{start} --> {end}\n")
+            # Encode nội dung tiếng Việt rành mạch
+            content = sub.content_en
+            if sub.content_vi:
+                content += f"\n{sub.content_vi}"
+            f.write(f"{content}\n\n")
+
+    # 4. Cập nhật đường dẫn vào Database (URL tương đối cho Frontend)
+    # Không để /api ở đầu vì sẽ bị nhân đôi khi quan qua Proxy/API_BASE_URL
+    video.subtitle_vtt_url = f"/static/subs/{file_name}"
+    db.session.commit()
+    
+    print(f"✅ Exported VTT for Video {video_id}: {file_path}")
+    return video.subtitle_vtt_url

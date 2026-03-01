@@ -11,8 +11,8 @@ export async function SSR_Users(page = 1, per_page = 5) {
       `${BeUrl}/users?page=${page}&per_page=${per_page}`,
       {
         headers: { Authorization: `Bearer ${token}` },
-        next: { revalidate: 60 },
-      }
+        next: { revalidate: 60, tags: ["users"] },
+      },
     );
     const res = await response.json();
     const { users, pagination } = res.data;
@@ -38,7 +38,7 @@ export async function SSR_Users_Stats() {
     const token = cookieStore.get("access_token")?.value;
     const response = await fetch(`${BeUrl}/users/stats`, {
       headers: { Authorization: `Bearer ${token}` },
-      next: { revalidate: 60 },
+      next: { revalidate: 60, tags: ["users"] },
     });
     const data = await response.json();
     const { summary, chart_data } = data.result.data;

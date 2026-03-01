@@ -4,26 +4,16 @@ import UsersSection from "@/app/components/admin/wrappers/UsersSection";
 import Skeleton from "react-loading-skeleton";
 import CategoriesSection from "@/app/components/admin/wrappers/CategoriesSection";
 import DashBoardSection from "@/app/components/admin/wrappers/DashBoardSection";
-import ManagementSkillSection from "@/app/components/admin/wrappers/ManagementSkillSection";
+import ManagementVideoSection from "@/app/components/admin/wrappers/ManagementSkillSection";
+import VideosSection from "@/app/components/admin/wrappers/VideosSection";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
-async function AdminContentResolver({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
-  const { tab, categoryId, nameCategory } = await searchParams;
-  const currentTab = tab || "Dashboard";
-  const category_Id = Array.isArray(categoryId)
-    ? categoryId[0]
-    : categoryId || "";
-
-  const category_Name = Array.isArray(nameCategory)
-    ? nameCategory[0]
-    : nameCategory || "";
+async function AdminContentResolver({ searchParams }: { searchParams: any }) {
+  const params = await searchParams;
+  const currentTab = params.tab || "Users_Management";
 
   switch (currentTab) {
     case "Users_Management":
@@ -32,14 +22,16 @@ async function AdminContentResolver({
     case "Categories_Management":
       return <CategoriesSection />;
 
-    // Temporarily commented out - Backend changed: skill -> video
-    // case "Skills_Management":
-    //   return (
-    //     <ManagementSkillSection
-    //       categoryId={category_Id || ""}
-    //       nameCategory={category_Name || ""}
-    //     />
-    //   );
+    case "Phim_Management":
+      return <VideosSection />;
+
+    case "Categories_Management_Details":
+      return (
+        <ManagementVideoSection
+          categoryId={(params.id as string) || ""}
+          nameCategory={(params.name as string) || ""}
+        />
+      );
 
     case "Dashboard":
     default:
@@ -47,7 +39,9 @@ async function AdminContentResolver({
   }
 }
 
-export default function Page(props: { searchParams: SearchParams }) {
+export default async function Page(props: { searchParams: SearchParams }) {
+  const searchParams = await props.searchParams;
+
   return (
     <AdminPage>
       <Suspense
@@ -58,7 +52,7 @@ export default function Page(props: { searchParams: SearchParams }) {
           </div>
         }
       >
-        <AdminContentResolver searchParams={props.searchParams} />
+        <AdminContentResolver searchParams={searchParams} />
       </Suspense>
     </AdminPage>
   );

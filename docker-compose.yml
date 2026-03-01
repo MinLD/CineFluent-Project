@@ -21,6 +21,7 @@ services:
     volumes:
       - ./.env:/app/.env
       - ./server/be_flask_cinefluent/app/utils/service-account.json:/app/app/utils/service-account.json
+      - vtt_storage:/app/storage
     image: minld/cinefluent-backend:latest
     restart: always
     ports:
@@ -72,3 +73,4 @@ networks:
 volumes:
   db_data:
   nginx_cache:
+  vtt_storage:

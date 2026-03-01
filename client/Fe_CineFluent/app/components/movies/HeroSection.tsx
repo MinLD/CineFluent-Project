@@ -22,14 +22,14 @@ export function HeroSection() {
     onSuccess: (data) => {
       console.log(data);
       if (data.success) {
-        toast.success("Import video thành công!");
+        toast.success(data.message);
         setVideoLink(""); // Clear input
         setIsOpen(false); // Close modal
 
         // Invalidate videos query to refetch the list
         queryClient.invalidateQueries({ queryKey: ["videos"] });
       } else {
-        toast.error(data.error || "Import video thất bại");
+        toast.error(data.message || "Import video thất bại");
       }
     },
     onError: (error: any) => {

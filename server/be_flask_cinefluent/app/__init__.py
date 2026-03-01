@@ -47,6 +47,10 @@ def create_app(config_name='default'):
     app.register_blueprint(learning_bp, url_prefix='/api/learning')
 
 
+    from .controller.tmdb_controller import tmdb_bp
+    app.register_blueprint(tmdb_bp, url_prefix='/api/tmdb')
+
+
 
     # External movie controller removed as requested
     # from .controller.external_movie_controller import external_bp
@@ -60,13 +64,16 @@ def create_app(config_name='default'):
 
 
 
+
+    
+
+
+
     
 
 
 
     
-
-
     # check_if_token_in_blocklist
     @jwt.token_in_blocklist_loader
     def check_if_token_in_blocklist(jwt_header, jwt_data):
@@ -106,4 +113,21 @@ def create_app(config_name='default'):
     
     from .models import models_model
     from .services import users_service, role_service, auth_service,upload_service
+
+    # [VTT_OPTIMIZATION] Cấu hình serving file tĩnh cho phụ đề .vtt
+    @app.route('/api/static/subs/<path:filename>')
+    def serve_subtitles(filename):
+        import os
+        from flask import send_from_directory, current_app
+        # Sử dụng đường dẫn tương đối từ project root để đảm bảo an toàn
+        project_root = os.path.abspath(os.path.join(current_app.root_path, '..'))
+        subs_dir = os.path.join(project_root, 'storage', 'subtitles')
+        
+        # Log để debug nếu có lỗi 500
+        print(f"📂 [VTT_SERVE] Request: {filename} from {subs_dir}")
+        if not os.path.exists(os.path.join(subs_dir, filename)):
+            print(f"❌ [VTT_SERVE] File not found: {filename}")
+            
+        return send_from_directory(subs_dir, filename)
+
     return app

@@ -10,24 +10,32 @@ export interface I_Subtitle {
 
 export interface I_Video {
   id: number;
-  youtube_id?: string;
+  slug: string;
+
+  runtime: number;
+  backdrop_url?: string;
   imdb_id?: string;
   title: string;
+  original_title?: string;
   description?: string;
   source_type: string;
+  stream_url: string;
   source_url: string;
   thumbnail_url: string;
-  category_id?: number;
   level: string;
-  duration?: number;
+  author?: string;
+  country?: string;
+  release_year?: number;
   view_count: number;
-  like_count?: number;
+  status: "public" | "private";
   comment_count?: number;
+  subtitle_vtt_url?: string;
   subtitles?: I_Subtitle[];
-  category?: {
+  categories?: {
     id: number;
     name: string;
-  };
+    slug: string;
+  }[];
   created_at: string;
   updated_at: string;
 }

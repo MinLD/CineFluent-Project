@@ -122,3 +122,22 @@ body {
 .animate-slide-in {
   animation: slideInFromRight 0.4s ease-out;
 }
+
+/* Short Ping Animation for Play/Pause */
+.animate-ping-short {
+  animation: ping-short 0.4s cubic-bezier(0, 0, 0.2, 1) forwards;
+}
+
+@keyframes ping-short {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}

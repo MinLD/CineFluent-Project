@@ -3,6 +3,11 @@ const nextConfig: NextConfig = {
   output: "standalone",
   reactCompiler: false,
   cacheComponents: false,
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "20mb",
+    },
+  },
   async headers() {
     return [
       {

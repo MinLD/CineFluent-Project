@@ -1,13 +1,14 @@
 import { axiosClient } from "@/app/lib/services/api_client";
 import { I_FormUser } from "@/app/lib/types/users";
 
-const Api_Register = (username: string, email: string, password: string) => {
-  return axiosClient.post("/users/", {
-    username: username,
+const Api_Register = (fullname: string, email: string, password: string) => {
+  return axiosClient.post("/users", {
+    fullname: fullname,
     email: email,
     password: password,
   });
 };
+
 const Api_Admin_States_Users = (token?: string) => {
   return axiosClient.get("/users/stats", {
     headers: {
@@ -15,6 +16,7 @@ const Api_Admin_States_Users = (token?: string) => {
     },
   });
 };
+
 const Api_Profile_User = (userId: string, token?: string) => {
   if (token) {
     console.log("Đang chạy Api_Profile_User từ SERVER (SSR)");
@@ -59,7 +61,7 @@ const Api_Delete_User = (userId: string, token?: string) => {
 };
 
 const Api_Update_Profile = (token: string, data: I_FormUser) => {
-  return axiosClient.put(`/users/profile`, data, {
+  return axiosClient.patch(`/users/profile`, data, {
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "multipart/form-data",

@@ -1,4 +1,4 @@
-"use-client";
+"use client";
 import { Calendar, Lock, Mail, Phone, Save, User } from "lucide-react";
 import { useAuth } from "@/app/lib/hooks/useAuth";
 import { useFormik } from "formik";
@@ -15,7 +15,6 @@ type FormData = {
   phone?: string;
   bio?: string;
   date_of_birth?: string;
-  social_links?: string;
 };
 
 type Form = {
@@ -66,7 +65,6 @@ export const UserInformation = () => {
     ),
     date_of_birth: Yup.string(), // Provide loose validation for date string
     bio: Yup.string().max(500, "Mô tả tối đa 500 ký tự"),
-    social_links: Yup.string().url("Phải là đường dẫn hợp lệ"),
   });
 
   const formik = useFormik({
@@ -78,7 +76,6 @@ export const UserInformation = () => {
       date_of_birth: user?.profile?.date_of_birth
         ? new Date(user.profile.date_of_birth).toISOString().split("T")[0]
         : "", // Format date for input type="date"
-      social_links: user?.profile?.bio || "",
     },
     enableReinitialize: true, // Important: Allows form to reset if user prop updates from server
     validationSchema,
@@ -222,9 +219,6 @@ export const UserInformation = () => {
               )}
             </div>
           </div>
-
-          {/* Social Link (Example) */}
-          {/* <div className="mb-6"> ...add social inputs similarly... </div> */}
         </div>
 
         <div className="flex items-center justify-end pt-4 border-t border-gray-100">

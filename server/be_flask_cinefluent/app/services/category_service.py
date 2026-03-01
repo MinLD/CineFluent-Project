@@ -98,7 +98,9 @@ def search_category(keyword, page, per_page):
     paginated_result = Category.query.filter(
         or_(
             Category.name.ilike(search_pattern),
-            Category.description.ilike(search_pattern)
+            Category.description.ilike(search_pattern),
+            Category.slug.ilike(search_pattern),
+            Category.id.ilike(search_pattern)
         )
     ).paginate(page=page, per_page=per_page, error_out=False)
 

@@ -1,23 +1,14 @@
 import { BeUrl } from "@/app/lib/services/api_client";
 
 // ✅ Next 16 Fix: Add return type for better type safety
-export async function SSR_Categories(
-  page = 1,
-  per_page = 5,
-  search = "",
-  sort = "",
-) {
+export async function SSR_Categories(page = 1, per_page = 5) {
   try {
     const queryParams = new URLSearchParams({
       page: page.toString(),
       per_page: per_page.toString(),
     });
-
-    if (search) queryParams.append("search", search);
-    if (sort) queryParams.append("sort", sort);
-
     const res = await fetch(`${BeUrl}/categories?${queryParams.toString()}`, {
-      next: { revalidate: 60 },
+      next: { tags: ["categories"] },
     });
 
     if (!res.ok) {
@@ -51,7 +42,7 @@ export async function SSR_All_SkillsByCategories(
     const res = await fetch(
       `${BeUrl}/categories/${categoryId}/skills?page=${page}&per_page=${per_page}`,
       {
-        next: { revalidate: 60 },
+        next: { tags: ["skills", `category-${categoryId}-skills`] },
       },
     );
     if (!res.ok) {
@@ -71,6 +62,42 @@ export async function SSR_All_SkillsByCategories(
         per_page: 0,
         total_items: 0,
         total_pages: 0,
+      },
+    };
+  }
+}
+
+export async function SSR_All_VideosByCategories(
+  categoryId: string,
+  page = 1,
+  per_page = 1000000,
+) {
+  try {
+    const res = await fetch(
+      `${BeUrl}/videos?category_id=${categoryId}&page=${page}&per_page=${per_page}`,
+      {
+        next: { tags: ["videos", `category-${categoryId}-videos`] },
+      },
+    );
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    console.log("[SSR_All_VideosByCategories] Fetched data:", data.data);
+    const { videos, pagination } = data?.data;
+    return { videos, pagination };
+  } catch (error: any) {
+    console.error("[SSR_All_VideosByCategories] Error:", error.message);
+    return {
+      videos: null,
+      pagination: {
+        current_page: 1,
+        per_page: 0,
+        total_items: 0,
+        total_pages: 0,
+        has_next: false,
+        has_prev: false,
       },
     };
   }
