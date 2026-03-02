@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Volume2, BookOpen, Bookmark } from "lucide-react";
+import { X, Volume2, BookOpen, Bookmark, Loader2 } from "lucide-react";
 import { FeApiProxyUrl } from "@/app/lib/services/api_client";
+import { useAuth } from "@/app/lib/hooks/useAuth";
+import { saveFlashcardAction } from "@/app/lib/actions/flashcards";
+import { toast } from "sonner";
 
 interface QuickDictionaryModalProps {
   word: string;
   context: string;
+  videoId: number;
   onClose: () => void;
 }
 
@@ -22,9 +26,12 @@ interface DictionaryResult {
 export function QuickDictionaryModal({
   word,
   context,
+  videoId,
   onClose,
 }: QuickDictionaryModalProps) {
+  const { token } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<DictionaryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -162,9 +169,49 @@ export function QuickDictionaryModal({
 
         {/* Footer */}
         <div className="p-4 border-t border-slate-700 bg-slate-900/30">
-          <button className="hover:cursor-pointer w-full flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white py-2.5 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20">
-            <Bookmark className="w-4 h-4" />
-            Lưu từ vựng
+          <button
+            onClick={async () => {
+              if (!result) return;
+              if (!token) {
+                toast.error("Vui lòng đăng nhập để lưu từ vựng!");
+                return;
+              }
+              setSaving(true);
+              try {
+                const formData = new FormData();
+                formData.append("token", token);
+                formData.append("video_id", videoId.toString());
+                formData.append("word", result.word);
+                formData.append("context_sentence", context);
+                formData.append("ipa", result.ipa || "");
+                formData.append("pos", result.pos || "");
+                formData.append("definition_vi", result.definition_vi || "");
+                formData.append("example_en", result.example_en || "");
+                formData.append("example_vi", result.example_vi || "");
+
+                const data = await saveFlashcardAction(null, formData);
+
+                if (data.success) {
+                  toast.success(data.message);
+                  onClose();
+                } else {
+                  toast.error(data.error || "Lỗi khi lưu");
+                }
+              } catch (e) {
+                toast.error("Không thể kết nối đến server");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={saving || !result}
+            className={`w-full flex items-center justify-center gap-2 text-white py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-sky-500/20 ${saving || !result ? "bg-slate-600 cursor-not-allowed" : "bg-sky-600 hover:bg-sky-500 hover:cursor-pointer active:scale-95"}`}
+          >
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Bookmark className="w-4 h-4" />
+            )}
+            {saving ? "Đang lưu..." : "Lưu từ vựng"}
           </button>
         </div>
       </div>

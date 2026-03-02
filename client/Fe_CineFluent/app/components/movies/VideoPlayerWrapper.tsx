@@ -79,6 +79,12 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     null,
   );
 
+  // Quick Dictionary State
+  const [selectedWord, setSelectedWord] = useState<{
+    word: string;
+    context: string;
+  } | null>(null);
+
   // Settings State: Quality & Subtitle Appearance
   const [qualities, setQualities] = useState<string[]>([]);
   const [currentQuality, setCurrentQuality] = useState<string>("auto");
@@ -441,10 +447,6 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     }
   }, []);
   // --- DICTIONARY HANDLERS ---
-  const [selectedWord, setSelectedWord] = useState<{
-    word: string;
-    context: string;
-  } | null>(null);
   const handleVideoClick = useCallback(() => {
     // Prevent if modals are open
     if (shadowingSubtitle || dictationSubtitle || selectedWord) return;
@@ -868,6 +870,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
             <QuickDictionaryModal
               word={selectedWord.word}
               context={selectedWord.context}
+              videoId={video.id}
               onClose={closeDictionary}
             />
           )}
@@ -915,8 +918,8 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
         <div className="z-[50] lg:col-span-1 animate-slide-in h-0 min-h-full">
           <SubtitlePanel
             subtitles={subtitles}
-            activeIndex={activeIndex}
             currentTime={currentTime}
+            activeIndex={activeIndex}
             onSubtitleClick={handleSubtitleClick}
             onPracticeClick={handlePracticeClick}
             handleShowShadowingWhenClickSub={handleShowShadowingWhenClickSub}
