@@ -254,4 +254,82 @@ def translate_batch(texts: list[str], target_lang: str = 'vi') -> list[str]:
     return results
 
 
+def generate_flashcard_exercises_service(flashcards: list[dict]):
+    exercise_schema = {
+        "type": "OBJECT",
+        "properties": {
+            "multiple_choice": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "question": {"type": "STRING", "description": "English sentence missing the target word"},
+                        "options": {"type": "ARRAY", "items": {"type": "STRING"}, "description": "4 options including the correct word"},
+                        "answer": {"type": "STRING", "description": "The exact correct option"}
+                    },
+                    "required": ["question", "options", "answer"]
+                }
+            },
+            "fill_in_blank": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "sentence_vi": {"type": "STRING", "description": "Vietnamese meaning of the sentence"},
+                        "sentence_en_hidden": {"type": "STRING", "description": "English sentence with the word hidden by '___'"},
+                        "answer": {"type": "STRING", "description": "The missing English word"}
+                    },
+                    "required": ["sentence_vi", "sentence_en_hidden", "answer"]
+                }
+            },
+            "translation": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "vietnamese": {"type": "STRING", "description": "Vietnamese sentence using the word"},
+                        "english": {"type": "STRING", "description": "English translation"}
+                    },
+                    "required": ["vietnamese", "english"]
+                }
+            }
+        },
+        "required": ["multiple_choice", "fill_in_blank", "translation"]
+    }
 
+    words_info = []
+    for f in flashcards:
+        words_info.append(f"- {f.get('word', '')} (Meaning: {f.get('definition_vi', '')}, Pos: {f.get('pos', '')})")
+    
+    words_text = "\n".join(words_info)
+
+    prompt = f"""
+    Based on the following English words, generate 3 types of exercises:
+    1. Multiple Choice: Guess the missing word in an English sentence.
+    2. Fill in the Blank: Translate Vietnamese to English, but give the English sentence with the target word hidden as '___'.
+    3. Translation: A Vietnamese sentence containing the meaning of the word. User must translate it to English.
+
+    Generate 1 question of EACH type for EACH word below (if possible, max 5 words total for performance).
+    Keep sentences simple and natural.
+
+    Words:
+    {words_text}
+    """
+
+    try:
+        response = cinefluent_ai.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt],
+            config=types.GenerateContentConfig(
+                temperature=0.4,
+                response_mime_type="application/json",
+                response_schema=exercise_schema
+            )
+        )
+
+        result = json.loads(response.text)
+        return {"success": True, "data": result}
+    except Exception as e:
+        error_str = str(e)
+        print(f"Lỗi AI Generate Exercises: {error_str}")
+        return {"success": False, "error": "Lỗi khi tạo bài tập tự động."}

@@ -56,6 +56,9 @@ def create_app(config_name='default'):
     from .controller.request_controller import request_bp
     app.register_blueprint(request_bp, url_prefix='/api/requests')
 
+    from .controller.flashcard_controller import flashcard_bp
+    app.register_blueprint(flashcard_bp, url_prefix='/api/flashcards')
+
 
 
 

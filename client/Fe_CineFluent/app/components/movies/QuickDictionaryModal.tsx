@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { X, Volume2, BookOpen, Bookmark, Loader2 } from "lucide-react";
 import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 import { useAuth } from "@/app/lib/hooks/useAuth";
@@ -37,15 +38,23 @@ export function QuickDictionaryModal({
 
   useEffect(() => {
     const fetchDefinition = async () => {
+      // Bắt buộc đăng nhập mới được tra từ
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
         const response = await fetch(
           `${FeApiProxyUrl}/learning/quick-dictionary`,
-
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
             body: JSON.stringify({ word, context }),
           },
         );
@@ -102,8 +111,29 @@ export function QuickDictionaryModal({
         </div>
 
         {/* Content */}
-        <div className="p-5 min-h-[200px] flex flex-col justify-center">
-          {loading ? (
+        <div className="p-5 min-h-[240px] flex flex-col justify-center">
+          {!token ? (
+            <div className="flex flex-col items-center gap-6 text-center py-4">
+              <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/20">
+                <Bookmark className="w-8 h-8 text-amber-500" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-white font-bold text-lg">
+                  Yêu cầu đăng nhập
+                </h3>
+                <p className="text-slate-400 text-sm leading-relaxed px-4">
+                  Bạn cần đăng nhập để sử dụng tính năng tra từ nhanh và lưu từ
+                  vựng vào kho cá nhân.
+                </p>
+              </div>
+              <Link
+                href="/login"
+                className="px-8 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold transition-all active:scale-95"
+              >
+                Đăng nhập ngay
+              </Link>
+            </div>
+          ) : loading ? (
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
               <p className="text-slate-400 text-sm">Đang tra từ...</p>
@@ -168,52 +198,62 @@ export function QuickDictionaryModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-700 bg-slate-900/30">
-          <button
-            onClick={async () => {
-              if (!result) return;
-              if (!token) {
-                toast.error("Vui lòng đăng nhập để lưu từ vựng!");
-                return;
-              }
-              setSaving(true);
-              try {
-                const formData = new FormData();
-                formData.append("token", token);
-                formData.append("video_id", videoId.toString());
-                formData.append("word", result.word);
-                formData.append("context_sentence", context);
-                formData.append("ipa", result.ipa || "");
-                formData.append("pos", result.pos || "");
-                formData.append("definition_vi", result.definition_vi || "");
-                formData.append("example_en", result.example_en || "");
-                formData.append("example_vi", result.example_vi || "");
-
-                const data = await saveFlashcardAction(null, formData);
-
-                if (data.success) {
-                  toast.success(data.message);
-                  onClose();
-                } else {
-                  toast.error(data.error || "Lỗi khi lưu");
+        {token && (
+          <div className="p-4 border-t border-slate-700 bg-slate-900/30">
+            <button
+              onClick={async () => {
+                if (!result) return;
+                if (!token) {
+                  toast.error("Vui lòng đăng nhập để lưu từ vựng!");
+                  return;
                 }
-              } catch (e) {
-                toast.error("Không thể kết nối đến server");
-              } finally {
-                setSaving(false);
-              }
-            }}
-            disabled={saving || !result}
-            className={`w-full flex items-center justify-center gap-2 text-white py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-sky-500/20 ${saving || !result ? "bg-slate-600 cursor-not-allowed" : "bg-sky-600 hover:bg-sky-500 hover:cursor-pointer active:scale-95"}`}
-          >
-            {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Bookmark className="w-4 h-4" />
-            )}
-            {saving ? "Đang lưu..." : "Lưu từ vựng"}
-          </button>
-        </div>
+                setSaving(true);
+                try {
+                  const formData = new FormData();
+                  formData.append("token", token);
+                  formData.append("video_id", videoId.toString());
+                  formData.append("word", result.word);
+                  formData.append("context_sentence", context);
+                  formData.append("ipa", result.ipa || "");
+                  formData.append("pos", result.pos || "");
+                  formData.append("definition_vi", result.definition_vi || "");
+                  formData.append("example_en", result.example_en || "");
+                  formData.append("example_vi", result.example_vi || "");
+
+                  const data = await saveFlashcardAction(null, formData);
+
+                  if (data.success) {
+                    toast.success(data.message);
+                    onClose();
+                  } else {
+                    toast.error(data.error || "Lỗi khi lưu");
+                  }
+                } catch (e) {
+                  toast.error("Không thể kết nối đến server");
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              disabled={saving || !result || !token}
+              className={`w-full flex items-center justify-center gap-2 text-white py-2.5 rounded-xl font-bold transition-all shadow-lg ${
+                saving || !result || !token
+                  ? "bg-slate-600 cursor-not-allowed opacity-50 shadow-none"
+                  : "bg-sky-600 hover:bg-sky-500 hover:cursor-pointer active:scale-95 shadow-sky-500/20"
+              }`}
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Bookmark className="w-4 h-4" />
+              )}
+              {!token
+                ? "Yêu cầu đăng nhập"
+                : saving
+                  ? "Đang lưu..."
+                  : "Lưu vào Kho từ vựng"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
