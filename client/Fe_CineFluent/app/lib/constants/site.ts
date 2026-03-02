@@ -95,4 +95,14 @@ export const data_sibar_admin = [
       },
     ],
   },
+  {
+    title: "Trò chơi & Học tập",
+    label: [
+      {
+        id: "Typing_Game_Management",
+        name: "Quản lý Typing Game",
+        icon: Award,
+      },
+    ],
+  },
 ];

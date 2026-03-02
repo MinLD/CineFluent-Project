@@ -59,6 +59,9 @@ def create_app(config_name='default'):
     from .controller.flashcard_controller import flashcard_bp
     app.register_blueprint(flashcard_bp, url_prefix='/api/flashcards')
 
+    from .controller.typing_game_controller import typing_game_bp
+    app.register_blueprint(typing_game_bp, url_prefix='/api/typing-game')
+
 
 
 

@@ -8,6 +8,7 @@ import ManagementVideoSection from "@/app/components/admin/wrappers/ManagementSk
 import VideosSection from "@/app/components/admin/wrappers/VideosSection";
 import RequestsSection from "@/app/components/admin/wrappers/RequestsSection";
 import ReportsSection from "@/app/components/admin/wrappers/ReportsSection";
+import TypingGameSection from "@/app/components/admin/wrappers/TypingGameSection";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,9 @@ async function AdminContentResolver({ searchParams }: { searchParams: any }) {
 
     case "Reports_Management":
       return <ReportsSection />;
+
+    case "Typing_Game_Management":
+      return <TypingGameSection />;
 
     case "Categories_Management_Details":
       return (

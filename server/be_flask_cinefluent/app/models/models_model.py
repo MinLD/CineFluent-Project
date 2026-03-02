@@ -203,3 +203,44 @@ class FlashcardExercise(db.Model):
     # Relationship Note: In `User` class we didn't add relationship, we can add it later if we need `user.quiz_history` backref
     user = db.relationship('User', backref=backref('flashcard_exercises', lazy='dynamic', cascade='all, delete-orphan'))
 
+
+class TypingGameMap(db.Model):
+    __tablename__ = 'typing_game_maps'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    thumbnail_url = db.Column(db.String(500), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    total_chapters = db.Column(db.Integer, default=5)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationship to stages
+    stages = db.relationship('TypingGameStage', backref='map', lazy='dynamic', cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'thumbnail_url': self.thumbnail_url,
+            'description': self.description,
+            'total_chapters': self.total_chapters,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+class TypingGameStage(db.Model):
+    __tablename__ = 'typing_game_stages'
+    id = db.Column(db.Integer, primary_key=True)
+    map_id = db.Column(db.Integer, db.ForeignKey('typing_game_maps.id', ondelete='CASCADE'), nullable=False)
+    chapter_number = db.Column(db.Integer, nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    difficulty = db.Column(db.Enum('Easy', 'Medium', 'Hard'), default='Medium')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'map_id': self.map_id,
+            'chapter_number': self.chapter_number,
+            'content': self.content,
+            'difficulty': self.difficulty,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }

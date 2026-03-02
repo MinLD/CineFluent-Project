@@ -333,3 +333,50 @@ def generate_flashcard_exercises_service(flashcards: list[dict]):
         error_str = str(e)
         print(f"Lỗi AI Generate Exercises: {error_str}")
         return {"success": False, "error": "Lỗi khi tạo bài tập tự động."}
+
+def generate_typing_game_content_service(topic: str):
+    typing_game_schema = {
+        "type": "OBJECT",
+        "properties": {
+            "name": {"type": "STRING", "description": "Tên bản đồ game hấp dẫn"},
+            "description": {"type": "STRING", "description": "Mô tả ngắn gọn về cốt truyện"},
+            "stages": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "chapter_number": {"type": "INTEGER"},
+                        "content": {"type": "STRING", "description": "Đoạn văn tiếng Anh để gõ (30-60 từ)"},
+                        "difficulty": {"type": "STRING", "enum": ["Easy", "Medium", "Hard"]}
+                    },
+                    "required": ["chapter_number", "content", "difficulty"]
+                }
+            }
+        },
+        "required": ["name", "description", "stages"]
+    }
+
+    prompt = f"""
+    Create a 5-chapter English typing game map about the topic: "{topic}".
+    The story should be engaging for English learners.
+    Each chapter content should be 20-30 words.
+    Difficulty should increase slightly from chapter 1 to 5.
+    Return JSON only.
+    """
+
+    try:
+        response = cinefluent_ai.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt],
+            config=types.GenerateContentConfig(
+                temperature=0.7,
+                response_mime_type="application/json",
+                response_schema=typing_game_schema
+            )
+        )
+
+        result = json.loads(response.text)
+        return {"success": True, "data": result}
+    except Exception as e:
+        print(f"Lỗi AI Generate Typing Game: {str(e)}")
+        return {"success": False, "error": "Lỗi khi tạo nội dung game bằng AI."}
