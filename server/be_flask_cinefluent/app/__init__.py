@@ -50,11 +50,11 @@ def create_app(config_name='default'):
     from .controller.tmdb_controller import tmdb_bp
     app.register_blueprint(tmdb_bp, url_prefix='/api/tmdb')
 
+    from .controller.report_controller import report_bp
+    app.register_blueprint(report_bp, url_prefix='/api/reports')
 
-
-    # External movie controller removed as requested
-    # from .controller.external_movie_controller import external_bp
-    # app.register_blueprint(external_bp, url_prefix='/api/v1/external')
+    from .controller.request_controller import request_bp
+    app.register_blueprint(request_bp, url_prefix='/api/requests')
 
 
 

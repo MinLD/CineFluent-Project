@@ -11,10 +11,4 @@ export const mainNavLinks = [
     icons: Clapperboard,
   },
   { id: 2, href: "/studies/games", label: "Học qua game", icons: Gamepad2 },
-  {
-    id: 3,
-    href: "/",
-    label: "Gửi yêu cầu",
-    icons: Send,
-  },
 ];

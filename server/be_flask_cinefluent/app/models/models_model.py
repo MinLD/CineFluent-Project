@@ -33,7 +33,8 @@ class User(db.Model):
     # Relationships
     roles = db.relationship('Role', secondary='role_user', back_populates='users')
     profile = db.relationship('UserProfile', uselist=False, back_populates='user', cascade='all, delete-orphan')
-
+    video_reports = db.relationship('VideoReport', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
+    movie_requests = db.relationship('MovieRequest', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     def set_password(self, password):
         self.password = generate_password_hash(password)
 
@@ -108,6 +109,7 @@ class Video(db.Model):
     # Relationships
     categories = db.relationship('Category', secondary='video_categories', back_populates='videos')
     subtitles = db.relationship('Subtitle', back_populates='video', cascade='all, delete-orphan', lazy='dynamic')
+    reports = db.relationship('VideoReport', back_populates='video', lazy='dynamic', cascade='all, delete-orphan')
 
 class Subtitle(db.Model):
     __tablename__ = 'subtitles'
@@ -118,3 +120,33 @@ class Subtitle(db.Model):
     content_en = db.Column(db.Text, nullable=False) 
     content_vi = db.Column(db.Text) 
     video = db.relationship('Video', back_populates='subtitles')
+
+# Bảng quản lý báo lỗi thẻ phạt/phim mờ/không play được
+class VideoReport(db.Model):
+    __tablename__ = 'video_reports'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    video_id = db.Column(db.Integer, db.ForeignKey('videos.id', ondelete='CASCADE'), nullable=False, index=True)
+    issue_type = db.Column(db.String(50), nullable=False) # e.g., 'not_playing', 'wrong_subtitle', 'audio_sync_issue', 'other'
+    description = db.Column(db.Text, nullable=True)
+    status = db.Column(db.Enum('PENDING', 'RESOLVED', 'IGNORED'), default='PENDING', nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Khai báo Relationship một chiều từ Report -> User và Video để truy vấn nhanh
+    user = db.relationship('User', back_populates='video_reports')
+    video = db.relationship('Video', back_populates='reports')
+
+# Bảng quản lý yêu cầu phim mới của user
+class MovieRequest(db.Model):
+    __tablename__ = 'movie_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=False) # Tên phim User yêu cầu
+    note = db.Column(db.Text, nullable=True) # Ghi chú thêm
+    status = db.Column(db.Enum('PENDING', 'APPROVED', 'DONE', 'REJECTED'), default='PENDING', nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Khai báo Relationship
+    user = db.relationship('User', back_populates='movie_requests')

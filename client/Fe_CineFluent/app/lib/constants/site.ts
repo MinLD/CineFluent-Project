@@ -1,6 +1,15 @@
 // constants/site.ts
 
-import { Award, HandHeart, Users } from "lucide-react";
+import {
+  Award,
+  HandHeart,
+  Users,
+  BookImage,
+  CheckCircleIcon,
+  HandCoins,
+  UserCog,
+  Video,
+} from "lucide-react";
 
 export const siteTitleFooter = [
   {
@@ -9,18 +18,18 @@ export const siteTitleFooter = [
     children: [
       { id: 0, href: "/studies/movies", label: "Phim ảnh" },
       { id: 1, href: "/vocabulary", label: "Từ vựng" },
-      { id: 2, href: "/grammar", label: "Ngữ pháp" },
-      { id: 3, href: "/challenges", label: "Thử thách" },
+      { id: 2, href: "/studies/games", label: "Học qua game" },
+      { id: 3, href: "/request-movie", label: "Yêu cầu phim" },
     ],
   },
   {
     id: 1,
     title: "Về CineFluent",
     children: [
-      { id: 4, href: "/about", label: "Giới thiệu" },
-      { id: 5, href: "/features", label: "Tính năng" },
-      { id: 6, href: "/terms", label: "Điều khoản sử dụng" },
-      { id: 7, href: "/privacy", label: "Chính sách bảo mật" },
+      { id: 4, href: "/", label: "Giới thiệu" },
+      { id: 5, href: "/", label: "Tính năng" },
+      { id: 6, href: "/", label: "Điều khoản sử dụng" },
+      { id: 7, href: "/", label: "Chính sách bảo mật" },
     ],
   },
 ];
@@ -49,14 +58,6 @@ export const introduction_banner = [
   },
 ];
 
-import {
-  BookImage,
-  CheckCircleIcon,
-  HandCoins,
-  UserCog,
-  Video,
-} from "lucide-react";
-
 export const data_sibar_admin = [
   {
     title: "Quản lý người dùng",
@@ -76,6 +77,21 @@ export const data_sibar_admin = [
         id: "Phim_Management",
         name: "Quản lý Phim",
         icon: BookImage,
+      },
+    ],
+  },
+  {
+    title: "Phản hồi người dùng",
+    label: [
+      {
+        id: "Requests_Management",
+        name: "Yêu cầu phim",
+        icon: Video,
+      },
+      {
+        id: "Reports_Management",
+        name: "Báo lỗi video",
+        icon: CheckCircleIcon,
       },
     ],
   },

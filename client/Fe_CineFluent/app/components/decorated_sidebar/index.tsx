@@ -22,6 +22,7 @@ import { useAuth } from "@/app/lib/hooks/useAuth";
 import { mainNavLinks } from "@/app/lib/constants/navigation";
 import axios from "axios";
 import { FeApiProxyUrl } from "@/app/lib/services/api_client";
+import { MovieRequest } from "@/app/components/movies/RequestMovie";
 
 export default function SidebarWithAuth({ onClose }: { onClose: () => void }) {
   const { profile_user, isLoading } = useAuth();
@@ -149,6 +150,9 @@ export default function SidebarWithAuth({ onClose }: { onClose: () => void }) {
               label="Học Flashcards"
               href="/flashcards"
             />
+            <div className="px-3 pt-2">
+              <MovieRequest isHeader={true} />
+            </div>
           </div>
         </div>
       </div>

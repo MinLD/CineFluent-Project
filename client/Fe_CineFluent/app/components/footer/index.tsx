@@ -38,28 +38,10 @@ function MyFooter() {
               <h3 className="font-semibold mb-4">Kết nối</h3>
               <div className="flex space-x-4 mb-4">
                 <Link
-                  href="#"
+                  href="https://www.facebook.com/LuanDo2208"
                   className="text-gray-400 hover:text-white transition-colors"
                 >
                   <Facebook className="w-5 h-5" />
-                </Link>
-                <Link
-                  href="#"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <Twitter className="w-5 h-5" />
-                </Link>
-                <Link
-                  href="#"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <Instagram className="w-5 h-5" />
-                </Link>
-                <Link
-                  href="#"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <Linkedin className="w-5 h-5" />
                 </Link>
               </div>
               <ul className="space-y-2 text-sm text-gray-400">

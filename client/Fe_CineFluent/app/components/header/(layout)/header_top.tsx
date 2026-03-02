@@ -4,6 +4,7 @@ import UserAuthSection from "@/app/components/user_auth_section";
 import { mainNavLinks } from "@/app/lib/constants/navigation";
 import MyLayout from "@/app/layout/index";
 import Link from "next/link";
+import { MovieRequest } from "@/app/components/movies/RequestMovie";
 import MyWideLayout from "@/app/layout/WideLayout";
 import { Menu, Search } from "lucide-react";
 import { useNav } from "@/app/lib/hooks/useNav";
@@ -36,7 +37,10 @@ function HeaderTop() {
           ))}
         </nav>
 
-        <div className="hidden md:flex w-auto lg:w-[240px] justify-end items-center gap-2">
+        <div className="hidden md:flex w-auto lg:w-[350px] justify-end items-center gap-4">
+          <div className="scale-90 origin-right flex-shrink-0 ">
+            <MovieRequest isHeader={true} />
+          </div>
           <UserAuthSection />
         </div>
         <div className="md:hidden">

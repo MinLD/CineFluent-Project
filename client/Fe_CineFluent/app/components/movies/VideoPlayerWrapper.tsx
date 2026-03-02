@@ -795,15 +795,6 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
               <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
               <span className="text-sm md:text-base font-medium">Quay lại</span>
             </Link>
-
-            {/* Report Button */}
-            <button
-              className="inline-flex items-center gap-1.5 md:gap-2 text-white hover:text-red-400 transition-colors pointer-events-auto px-2 md:px-4 py-1.5 md:py-2 rounded-lg"
-              aria-label="Báo lỗi"
-            >
-              <Flag className="w-4 h-4 md:w-5 md:h-5" />
-              <span className="text-sm md:text-base font-medium">Báo Lỗi</span>
-            </button>
           </div>
           <span />
 
@@ -890,6 +881,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
             }`}
           >
             <CustomVideoControls
+              videoId={video.id}
               playerRef={playerRef}
               currentTime={currentTime}
               duration={duration}

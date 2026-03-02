@@ -19,7 +19,10 @@ import {
   ChevronLeft,
 } from "lucide-react";
 
+import { ReportVideoBtn } from "@/app/components/movies/ReportVideoBtn";
+
 interface CustomVideoControlsProps {
+  videoId: number;
   playerRef: React.RefObject<any>;
   currentTime: number;
   duration: number;
@@ -46,6 +49,7 @@ interface CustomVideoControlsProps {
 }
 
 export function CustomVideoControls({
+  videoId,
   playerRef,
   currentTime,
   duration,
@@ -423,6 +427,7 @@ export function CustomVideoControls({
             )}
           </div>
 
+          <ReportVideoBtn videoId={videoId} />
           {/* Fullscreen */}
           <button
             onClick={onFullscreen}

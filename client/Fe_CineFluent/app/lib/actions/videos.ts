@@ -11,6 +11,8 @@ import {
   Api_upload_subtitles,
   Api_delete_all_subtitles,
   Api_search_tmdb,
+  Api_create_report,
+  Api_create_request,
 } from "@/app/lib/services/video";
 
 export async function getVideosAction(
@@ -226,6 +228,46 @@ export async function searchTMDBAction(query: string, token: string) {
     return {
       success: false,
       error: error.response?.data?.message || error.message,
+    };
+  }
+}
+
+export async function createMovieRequestAction(
+  data: { title: string; note: string },
+  token: string,
+) {
+  try {
+    if (!token) return { success: false, error: "Vui lòng đăng nhập" };
+    const res = await Api_create_request(data, token);
+    return {
+      success: true,
+      message: res.data.message || "Gửi yêu cầu thành công!",
+      data: res.data.data,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.response?.data?.message || "Lỗi khi gửi yêu cầu",
+    };
+  }
+}
+
+export async function createVideoReportAction(
+  data: { video_id: number; issue_type: string; description: string },
+  token: string,
+) {
+  try {
+    if (!token) return { success: false, error: "Vui lòng đăng nhập" };
+    const res = await Api_create_report(data, token);
+    return {
+      success: true,
+      message: res.data.message || "Gửi báo cáo thành công!",
+      data: res.data.data,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.response?.data?.message || "Lỗi khi gửi báo cáo",
     };
   }
 }

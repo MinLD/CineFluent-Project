@@ -6,6 +6,8 @@ import CategoriesSection from "@/app/components/admin/wrappers/CategoriesSection
 import DashBoardSection from "@/app/components/admin/wrappers/DashBoardSection";
 import ManagementVideoSection from "@/app/components/admin/wrappers/ManagementSkillSection";
 import VideosSection from "@/app/components/admin/wrappers/VideosSection";
+import RequestsSection from "@/app/components/admin/wrappers/RequestsSection";
+import ReportsSection from "@/app/components/admin/wrappers/ReportsSection";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,12 @@ async function AdminContentResolver({ searchParams }: { searchParams: any }) {
 
     case "Phim_Management":
       return <VideosSection />;
+
+    case "Requests_Management":
+      return <RequestsSection />;
+
+    case "Reports_Management":
+      return <ReportsSection />;
 
     case "Categories_Management_Details":
       return (

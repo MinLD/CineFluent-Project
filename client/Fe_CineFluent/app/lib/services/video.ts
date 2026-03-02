@@ -107,3 +107,19 @@ export const Api_delete_video = (id: number, token: string) => {
     },
   });
 };
+
+export const Api_create_request = (data: any, token: string) => {
+  return axiosClient.post(`/requests/`, data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+export const Api_create_report = (data: any, token: string) => {
+  return axiosClient.post(`/reports/`, data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};

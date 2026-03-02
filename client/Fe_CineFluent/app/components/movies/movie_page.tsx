@@ -2,7 +2,6 @@ import VideoFetcher from "@/app/components/fetcher_components/videoFetcher";
 import BannerCarousel from "@/app/components/movies/BannerCarousel";
 import { ExploreButton } from "@/app/components/movies/ExploreButton";
 import { HeroSection } from "@/app/components/movies/HeroSection";
-
 import { PlatformSection } from "@/app/components/movies/PlatformSection";
 import { I_categories_data } from "@/app/lib/types/categories";
 import { Film, Youtube } from "lucide-react";
