@@ -69,7 +69,7 @@ const Banner = () => {
               viewport={{ once: true, amount: 0.5 }}
               className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start mb-8 sm:mb-12"
             >
-              <Link href="/videos">
+              <Link href="/studies/movies">
                 <motion.button
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
@@ -79,7 +79,7 @@ const Banner = () => {
                 </motion.button>
               </Link>
 
-              <Link href="/lobby">
+              <Link href="/studies/games">
                 <motion.button
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}

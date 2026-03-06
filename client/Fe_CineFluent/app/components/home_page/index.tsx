@@ -4,14 +4,31 @@ import { motion } from "framer-motion";
 
 import MyLayout from "@/app/layout/index";
 import { introduction_banner } from "@/app/lib/constants/site";
-import WhyChooseSection from "@/app/components/why_choose_section";
 import { fadeInUp, staggerContainer } from "@/app/lib/Animation";
 import Banner from "@/app/components/banner";
 import HowItWork from "@/app/components/how_it_work";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
 type prop = {
   slots?: React.ReactNode;
 };
 function HomePages({ slots }: prop) {
+  const router = useRouter();
+
+  const handleCardClick = (href?: string) => {
+    if (href) {
+      router.push(href);
+    } else {
+      toast.info(
+        "Tính năng này đang được phát triển. Vui lòng quay lại sau nhé! 🚀",
+        {
+          position: "top-center",
+        },
+      );
+    }
+  };
+
   return (
     <>
       <Banner />
@@ -23,7 +40,7 @@ function HomePages({ slots }: prop) {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-50px" }}
-          className="md:grid grid-cols-3 hidden gap-8" // Thêm gap-8 cho thoáng
+          className="md:grid grid-cols-3 hidden gap-8 mt-20 mb-32 px-4"
         >
           {introduction_banner &&
             introduction_banner.map((item) => {
@@ -31,32 +48,28 @@ function HomePages({ slots }: prop) {
               return (
                 <motion.div
                   key={item.id}
-                  variants={fadeInUp} // Kế thừa hiệu ứng trồi lên
-                  className="text-center group" // Thêm class group để hover
+                  variants={fadeInUp}
+                  onClick={() => handleCardClick(item.href)}
+                  className="bg-white rounded-3xl p-8 shadow-xl shadow-slate-200/50 border border-slate-100 text-center group hover:-translate-y-2 transition-transform duration-300 cursor-pointer"
                 >
-                  {/* Icon Container: Thêm hiệu ứng Scale khi hover */}
                   <motion.div
-                    whileHover={{ scale: 1.1, rotate: 5 }} // Phóng to và xoay nhẹ
+                    whileHover={{ scale: 1.1, rotate: 5 }}
                     transition={{ type: "spring", stiffness: 300 }}
-                    className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/20"
+                    className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/20"
                   >
-                    <Icon className="w-9 h-9 text-white" />
+                    <Icon className="w-8 h-8 text-white" />
                   </motion.div>
 
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 group-hover:text-green-600 transition-colors">
-                    {item.id}. {item.title}
+                  <h3 className="text-xl font-bold text-slate-800 mb-4 group-hover:text-blue-600 transition-colors">
+                    {item.title}
                   </h3>
-                  <p className="text-sm sm:text-base text-gray-600 leading-relaxed px-4 sm:px-0">
+                  <p className="text-slate-600 leading-relaxed text-sm">
                     {item.description}
                   </p>
                 </motion.div>
               );
             })}
         </motion.div>
-
-        <WhyChooseSection />
-
-        {/* <div className="mt-16">{slots}</div> */}
       </MyLayout>
     </>
   );

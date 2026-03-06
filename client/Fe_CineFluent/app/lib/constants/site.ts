@@ -9,6 +9,7 @@ import {
   HandCoins,
   UserCog,
   Video,
+  Gamepad2,
 } from "lucide-react";
 
 export const siteTitleFooter = [
@@ -17,7 +18,7 @@ export const siteTitleFooter = [
     title: "Học tập",
     children: [
       { id: 0, href: "/studies/movies", label: "Phim ảnh" },
-      { id: 1, href: "/vocabulary", label: "Từ vựng" },
+      { id: 1, href: "/flashcards", label: "Từ vựng" },
       { id: 2, href: "/studies/games", label: "Học qua game" },
       { id: 3, href: "/request-movie", label: "Yêu cầu phim" },
     ],
@@ -37,24 +38,27 @@ export const siteTitleFooter = [
 export const introduction_banner = [
   {
     id: 1,
-    icon: Users,
-    title: "Trình phát Video thông minh",
+    icon: Video,
+    title: "Xem Phim & Khám Phá",
     description:
-      "Xem phim với phụ đề tương tác. Nhấp vào bất kỳ từ nào để dịch và lưu vào flashcard ngay lập tức.",
+      "Tuyển tập hàng ngàn phim bom tấn song ngữ. Click vào phụ đề để tra từ điển tức thì nhờ công nghệ AI.",
+    href: "/studies/movies",
   },
   {
     id: 2,
-    icon: HandHeart,
-    title: "Game nhiều người",
+    icon: BookImage,
+    title: "Flashcards & Luyện Tập AI",
     description:
-      "Tham gia Arcade Mode cho câu đố nhanh hoặc Cinema Room để xem cùng nhau. Thi đấu với bạn bè và lên cấp!",
+      "Lưu từ vựng trực tiếp lúc xem phim và để Gemini AI tự động tạo bài tập điền từ, dịch câu ôn luyện cho riêng bạn.",
+    href: "/flashcards",
   },
   {
     id: 3,
-    icon: Award,
-    title: "Học tập với AI ",
+    icon: Gamepad2,
+    title: "Chơi Game & Cọ Xát",
     description:
-      "Gemini AI giải thích ngữ cảnh từ, tạo flashcard thông minh với spaced repetition và cá nhân hóa hành trình của bạn.",
+      "Tăng cường phản xạ tiếng Anh qua Typing Game siêu tốc hoặc tham gia Video Call 1:1 với bạn bè do AI gợi ý chủ đề.",
+    href: "/studies/games",
   },
 ];
 
