@@ -4,7 +4,7 @@ import { DecodedToken } from "@/app/lib/types/users";
 
 const authPaths = ["/login", "/register"];
 const privatePathsAdmin = ["/admin"];
-const privatePaths = ["/settings"];
+const privatePaths = ["/settings", "/flashcards", "/request-movie"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

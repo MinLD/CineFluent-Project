@@ -6,9 +6,10 @@ import { motion } from "framer-motion";
 interface Props {
   text: string;
   onComplete: (stats: { wpm: number; accuracy: number }) => void;
+  onProgress?: (progress: number, wpm: number) => void;
 }
 
-export default function TypingEngine({ text, onComplete }: Props) {
+export default function TypingEngine({ text, onComplete, onProgress }: Props) {
   const [userInput, setUserInput] = useState("");
   const [startTime, setStartTime] = useState<number | null>(null);
   const [wpm, setWpm] = useState(0);
@@ -49,6 +50,13 @@ export default function TypingEngine({ text, onComplete }: Props) {
 
     if (userInput.length > 0 && userInput.length <= text.length) {
       calculateStats();
+    }
+
+    // Broadcast progress
+    if (onProgress && userInput.length <= text.length) {
+      const currentProgress =
+        (userInput.length / Math.max(1, text.length)) * 100;
+      onProgress(currentProgress, wpm);
     }
 
     if (userInput.length === text.length && text.length > 0 && !isFinished) {

@@ -185,3 +185,15 @@ def reset_exercise(exercise_id):
     except Exception as e:
         return error_response(message=f"Server Error: {str(e)}", code=500)
 
+
+@learning_bp.route('/ai-call-topics', methods=['GET'])
+def get_ai_call_topics():
+    try:
+        from ..services.learning_service import generate_ai_call_topics_service
+        result = generate_ai_call_topics_service()
+        if result.get('success'):
+            return success_response(data=result['data'], message='Topics generated', code=200)
+        else:
+            return error_response(message=f"AI Error: {result.get('error')}", code=500)
+    except Exception as e:
+        return error_response(message=f"Server Error: {str(e)}", code=500)

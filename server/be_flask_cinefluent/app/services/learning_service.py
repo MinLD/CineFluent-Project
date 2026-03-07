@@ -380,3 +380,45 @@ def generate_typing_game_content_service(topic: str):
     except Exception as e:
         print(f"Lỗi AI Generate Typing Game: {str(e)}")
         return {"success": False, "error": "Lỗi khi tạo nội dung game bằng AI."}
+
+def generate_ai_call_topics_service():
+    topics_schema = {
+        "type": "OBJECT",
+        "properties": {
+            "topic": {"type": "STRING", "description": "A very short, engaging topic (e.g. Travel, Movies, Tech)"},
+            "questions": {
+                "type": "ARRAY",
+                "items": {"type": "STRING"},
+                "description": "3 engaging ice-breaker questions in English about the topic"
+            },
+            "vocabulary": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "word": {"type": "STRING"},
+                        "meaning": {"type": "STRING", "description": "Short Vietnamese translation"}
+                    }
+                },
+                "description": "5 useful words or idioms related to the topic"
+            }
+        },
+        "required": ["topic", "questions", "vocabulary"]
+    }
+
+    prompt = "You are an English teacher. Generate a random, highly engaging conversation topic for two English learners to discuss. Include 3 ice-breaker questions and 5 useful vocabulary words with short Vietnamese meanings."
+
+    try:
+        response = cinefluent_ai.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.8,
+                response_mime_type="application/json",
+                response_schema=topics_schema
+            )
+        )
+        return {"success": True, "data": json.loads(response.text)}
+    except Exception as e:
+        print(f"Error generating AI topics: {e}")
+        return {"success": False, "error": str(e)}

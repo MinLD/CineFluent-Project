@@ -62,6 +62,9 @@ def create_app(config_name='default'):
     from .controller.typing_game_controller import typing_game_bp
     app.register_blueprint(typing_game_bp, url_prefix='/api/typing-game')
 
+    # Import socket controllers
+    from .controller import typing_socket_controller
+
 
 
 
