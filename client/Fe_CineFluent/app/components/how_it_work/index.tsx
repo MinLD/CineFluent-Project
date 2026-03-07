@@ -12,6 +12,7 @@ import {
 import { SwiperSlide } from "swiper/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import Image from "next/image";
 
 interface I_Step {
   id: number;
@@ -87,15 +88,15 @@ const HowItWork = () => {
         "Kết nối luyện nói trực tiếp với bạn bè hoặc giáo viên. AI sẽ theo dõi ngữ cảnh và gợi ý chủ đề nói tiếp theo.",
       icon: MessageCircle,
       gradientColor: "from-emerald-400 to-teal-600",
-      image: "",
-      href: "", // Coming soon
+      image: "/image_root/video11.png",
+      href: "/studies/games",
     },
   ];
 
   return (
     <>
       {/* How it work */}
-      <div className="text-center mb-16 mt-15 sm:px-25">
+      <div className="text-center mb-20 mt-15 sm:px-25 ">
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -150,7 +151,8 @@ const HowItWork = () => {
                       {step.image ? (
                         <div className="w-full h-full relative group-hover:scale-105 transition-transform duration-700">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
+                          <Image
+                            fill
                             src={step.image}
                             alt={step.title}
                             className="w-full h-full object-cover object-top"
@@ -170,11 +172,6 @@ const HowItWork = () => {
                         </div>
                       )}
                     </div>
-
-                    {/* Mobile Badge Number */}
-                    <div className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-lg font-black text-slate-800 border-4 border-slate-50 z-20">
-                      {step.id}
-                    </div>
                   </div>
                 </div>
 
@@ -190,7 +187,7 @@ const HowItWork = () => {
         })}
       </MySlider>{" "}
       {/* Desktop Layout - Zigzag or Grid */}
-      <div className="hidden md:block max-w-6xl mx-auto px-4 md:px-8">
+      <div className="hidden md:block max-w-6xl mx-auto px-4 md:px-8 mb-20">
         <div className="relative border-l-4 border-slate-100 ml-6 md:ml-0 md:border-none space-y-12">
           {STEPS_DATA.map((step, index) => {
             const IconComponent = step.icon;
@@ -230,10 +227,11 @@ const HowItWork = () => {
                       {step.image ? (
                         <div className="w-full h-full relative group-hover:scale-105 transition-transform duration-700">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={step.image}
+                          <Image
+                            fill
+                            src={step?.image || ""}
                             alt={step.title}
-                            className="w-full h-full object-cover object-top"
+                            className="object-cover object-top"
                           />
                           <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors duration-300"></div>
                         </div>
@@ -253,13 +251,6 @@ const HowItWork = () => {
                           </span>
                         </div>
                       )}
-                    </div>
-
-                    {/* Badge Number */}
-                    <div
-                      className={`absolute -top-4 ${isEven ? "-left-4" : "-right-4"} w-10 h-10 md:w-14 md:h-14 rounded-full bg-white shadow-xl flex items-center justify-center text-xl md:text-2xl font-black text-slate-800 border-4 border-slate-50 z-20`}
-                    >
-                      {step.id}
                     </div>
                   </motion.div>
                 </div>
