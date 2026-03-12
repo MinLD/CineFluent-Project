@@ -7,24 +7,23 @@ const isProd = process.env.NODE_ENV === "production";
 export const FeApiProxyUrl =
   process.env.NEXT_PUBLIC_URL_FRONTEND_PROXY || "/apiFe";
 // --- 1. Cấu hình Backend URL (Dùng cho Server-Side Rendering) ---
-// Thứ tự ưu tiên: Docker Internal -> Biến môi trường Local -> Mặc định Localhost
 export const BeUrl = isServer
-  ? process.env.URL_BACKEND_INTERNAL || // 1. Ưu tiên đường dẫn nội bộ Docker (khi chạy trên VPS)
-    process.env.URL_BACKEND_LOCAL || // 2. Nếu không có, dùng biến môi trường Local
-    "http://127.0.0.1:5000/api" // 3. Cuối cùng fallback về localhost mặc định
-  : FeApiProxyUrl; // Always go through Next.js proxy on the client
+  ? process.env.URL_BACKEND_INTERNAL ||
+    process.env.URL_BACKEND_LOCAL ||
+    "http://127.0.0.1:5000/api"
+  : FeApiProxyUrl;
 
-// --- 2. Cấu hình Frontend URL (Dùng cho SEO, Redirect, Link chia sẻ) ---
+// --- 2. Cấu hình Frontend URL ---
 export const FeUrl = isProd
-  ? process.env.NEXT_PUBLIC_URL_FRONTEND_PRODUCTION || "" // Production: Domain thật (https://...)
-  : process.env.NEXT_PUBLIC_URL_FRONTEND_LOCAL || "http://localhost:3000"; // Dev: Localhost
+  ? process.env.NEXT_PUBLIC_URL_FRONTEND_PRODUCTION || ""
+  : process.env.NEXT_PUBLIC_URL_FRONTEND_LOCAL || "http://localhost:3000";
 
-export const API_BASE_URL = isServer ? BeUrl : isProd ? "/api" : BeUrl; // Keep direct /api for Streaming Media
+export const API_BASE_URL = isServer ? BeUrl : isProd ? "/api" : BeUrl;
 
 const axiosClientConfig = {
   baseURL: BeUrl,
   timeout: 60000,
-  withCredentials: true,
+  withCredentials: true, // Mang theo cookie tự động
   headers: {
     "Content-Type": "application/json",
   },
@@ -33,55 +32,90 @@ const axiosClientConfig = {
 export const axiosClient = axios.create(axiosClientConfig);
 
 if (typeof window !== "undefined") {
-  // Thêm Token vào mỗi Request (Client-side)
+  // Biến dùng để xử lý Race Condition khi refresh token
+  let isRefreshing = false;
+  let failedQueue: any[] = [];
+
+  const processQueue = (error: any, token: string | null = null) => {
+    failedQueue.forEach((prom) => {
+      if (error) {
+        prom.reject(error);
+      } else {
+        prom.resolve(token);
+      }
+    });
+    failedQueue = [];
+  };
+
+  // --- Request Interceptor ---
   axiosClient.interceptors.request.use((config) => {
-    // Ưu tiên token truyền tay (nếu có)
-    if (config.headers.Authorization) return config;
-
-    // Lấy token mới nhất từ cookie (dành cho Client-side)
-    const token = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("access_token="))
-      ?.split("=")[1];
-
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // Không cần tự bóc cookie ở đây nữa!
+    // Vì withCredentials: true đã tự động gửi cookie httpOnly lên Next Proxy (/apiFe) rồi.
     return config;
   });
 
+  // --- Response Interceptor ---
   axiosClient.interceptors.response.use(
-    (response) => {
-      return response;
-    },
+    (response) => response,
     async (error) => {
       const originalRequest = error.config;
-      console.log("🚨 Axios Interceptor caught an error:", error);
+      console.log(
+        "🚨 Axios Interceptor caught an error:",
+        error?.response?.status,
+      );
+
       if (error.response?.status === 401 && !originalRequest._retry) {
+        if (isRefreshing) {
+          // 1. Đang có thằng đi refresh rồi, mảng queue lưu lại các request đang hóng
+          return new Promise(function (resolve, reject) {
+            failedQueue.push({ resolve, reject });
+          })
+            .then((token) => {
+              // 2. Refresh xong, gọi lại request cũ
+              return axiosClient(originalRequest);
+            })
+            .catch((err) => {
+              return Promise.reject(err);
+            });
+        }
+
         originalRequest._retry = true;
-        console.log(
-          "Token hết hạn hoặc không hợp lệ, đang tiến hành làm mới... (Client-side)",
-        );
+        isRefreshing = true;
+        console.log("🔄 Đang làm mới token... (Client-side)");
+
         try {
-          // Dùng FeApiProxyUrl hoặc đường dẫn tương đối chuẩn để hỗ trợ deploy
-          const res = await axios.post(`${FeApiProxyUrl}/auth/refreshtoken`);
-          console.log("Đã làm mới token thành công:", res.data);
-          const newAccessToken = res.data.access_token;
+          // Gọi API refresh token
+          const res = await axios.post(
+            `${FeApiProxyUrl}/auth/refreshtoken`,
+            {},
+            {
+              withCredentials: true,
+            },
+          );
 
-          // Phát sự kiện để cập nhật AuthContext nếu đang ở phía Client
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(
-              new CustomEvent("auth-token-refreshed", {
-                detail: { token: newAccessToken },
-              }),
-            );
-          }
+          const newAccessToken = res.data.access_token || res.data.token;
+          console.log("✅ Làm mới token thành công!");
 
-          originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
+          // Bắn Event cho AuthContext cập nhật State
+          window.dispatchEvent(
+            new CustomEvent("auth-token-refreshed", {
+              detail: { token: newAccessToken },
+            }),
+          );
+
+          // Giải cứu các request đang chờ trong Queue
+          processQueue(null, newAccessToken);
           return axiosClient(originalRequest);
         } catch (errorRefresh) {
-          console.log("Refresh token error and unable to login:", errorRefresh);
+          console.error("❌ Refresh token thất bại:", errorRefresh);
+          processQueue(errorRefresh, null);
+
+          // Bắn Event báo hiệu cho toàn App dọn dẹp biến state (cửa sổ login sẽ hiện ra)
+          window.dispatchEvent(new CustomEvent("auth-logged-out"));
+
           return Promise.reject(errorRefresh);
+        } finally {
+          isRefreshing = false;
         }
       }
       return Promise.reject(error);

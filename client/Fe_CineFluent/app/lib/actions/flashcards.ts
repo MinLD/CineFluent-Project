@@ -8,10 +8,12 @@ import {
   Api_reset_exercise,
 } from "@/app/lib/services/flashcards";
 import { revalidatePath } from "next/cache";
+import { SSR_Auth } from "@/app/lib/data/auth";
 
 export async function saveFlashcardAction(prevState: any, formData: FormData) {
   try {
-    const token = formData.get("token") as string;
+    const authData = await SSR_Auth();
+    const token = authData.token;
 
     if (!token) {
       return {
@@ -50,7 +52,8 @@ export async function saveFlashcardAction(prevState: any, formData: FormData) {
 
 export async function generateQuizAction(prevState: any, formData: FormData) {
   try {
-    const token = formData.get("token") as string;
+    const authData = await SSR_Auth();
+    const token = authData.token;
     const flashcardsJson = formData.get("flashcards") as string;
 
     if (!token) {
@@ -93,7 +96,8 @@ export async function getExercisesHistoryAction(
   formData: FormData,
 ) {
   try {
-    const token = formData.get("token") as string;
+    const authData = await SSR_Auth();
+    const token = authData.token;
     const page = Number(formData.get("page")) || 1;
     const per_page = Number(formData.get("per_page")) || 10;
 
@@ -111,7 +115,8 @@ export async function getExercisesHistoryAction(
 
 export async function submitExerciseAction(prevState: any, formData: FormData) {
   try {
-    const token = formData.get("token") as string;
+    const authData = await SSR_Auth();
+    const token = authData.token;
     const exerciseId = Number(formData.get("exerciseId"));
     const score = Number(formData.get("score"));
     const userAnswersJson = formData.get("userAnswers") as string;
@@ -137,7 +142,8 @@ export async function submitExerciseAction(prevState: any, formData: FormData) {
 
 export async function resetExerciseAction(prevState: any, formData: FormData) {
   try {
-    const token = formData.get("token") as string;
+    const authData = await SSR_Auth();
+    const token = authData.token;
     const exerciseId = Number(formData.get("exerciseId"));
 
     if (!token) return { success: false, error: "Unauthorized" };

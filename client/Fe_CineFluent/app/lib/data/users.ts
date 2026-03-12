@@ -1,11 +1,10 @@
 import { BeUrl } from "@/app/lib/services/api_client";
-import { cookies } from "next/headers";
+import { SSR_Auth } from "@/app/lib/data/auth";
 
 export async function SSR_Users(page = 1, per_page = 5) {
   try {
-    // ✅ Next 16 Fix: Explicit await on cookies
-    const cookieStore = await cookies();
-    const token = cookieStore.get("access_token")?.value;
+    const authData = await SSR_Auth();
+    const token = authData.token;
 
     const response = await fetch(
       `${BeUrl}/users?page=${page}&per_page=${per_page}`,
@@ -34,8 +33,9 @@ export async function SSR_Users(page = 1, per_page = 5) {
 
 export async function SSR_Users_Stats() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("access_token")?.value;
+    const authData = await SSR_Auth();
+    const token = authData.token;
+
     const response = await fetch(`${BeUrl}/users/stats`, {
       headers: { Authorization: `Bearer ${token}` },
       next: { revalidate: 60, tags: ["users"] },

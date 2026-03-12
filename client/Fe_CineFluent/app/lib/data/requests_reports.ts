@@ -1,13 +1,13 @@
 "use server";
 
 import { BeUrl } from "@/app/lib/services/api_client";
-import { cookies } from "next/headers";
+import { SSR_Auth } from "@/app/lib/data/auth";
 import { revalidateTag } from "next/cache";
 
 export async function SSR_Requests(page = 1, per_page = 5) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("access_token")?.value;
+    const authData = await SSR_Auth();
+    const token = authData.token;
 
     const response = await fetch(
       `${BeUrl}/requests?page=${page}&per_page=${per_page}`,
@@ -37,8 +37,8 @@ export async function SSR_Requests(page = 1, per_page = 5) {
 
 export async function SSR_Reports(page = 1, per_page = 5) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("access_token")?.value;
+    const authData = await SSR_Auth();
+    const token = authData.token;
 
     const response = await fetch(
       `${BeUrl}/reports?page=${page}&per_page=${per_page}`,

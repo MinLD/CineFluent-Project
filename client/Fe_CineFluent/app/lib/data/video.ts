@@ -1,10 +1,11 @@
 import { BeUrl } from "@/app/lib/services/api_client";
-import { cookies } from "next/headers";
+import { SSR_Auth } from "@/app/lib/data/auth";
 
 export async function SSR_Video_Slug(slug: string) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("access_token")?.value;
+    const authData = await SSR_Auth();
+    const token = authData.token;
+
     const response = await fetch(`${BeUrl}/videos/${slug}`, {
       headers: { Authorization: `Bearer ${token}` },
       next: { tags: ["videos", `video-${slug}`] },

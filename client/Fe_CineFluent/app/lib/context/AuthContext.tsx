@@ -3,7 +3,6 @@
 import { axiosClient } from "@/app/lib/services/api_client";
 import { Api_Profile_User } from "@/app/lib/services/user";
 import { Ty_User } from "@/app/lib/types/users";
-import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import { useRouter } from "next/navigation";
 import {
@@ -40,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile_user, setProfile_user] = useState<Ty_User | undefined>();
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const router = useRouter();
+
   useEffect(() => {
     const fetchData = async () => {
       if (token && !profile_user && userId) {
@@ -57,7 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("⚠️ AuthContext: Kiểm tra phiên đăng nhập ban đầu...");
         try {
           // Fallback cho lần đầu mount hoặc khi token chưa được set vào state
-          await axios.get("/apiFe/auth/whoami");
+          // Override baseURL để gọi đúng vào proxy server của Next.js thay vì backend
+          await axiosClient.get("/apiFe/auth/whoami", {
+            baseURL: window.location.origin,
+          });
           console.log("✅ Client: Phiên đăng nhập hợp lệ.");
           router.refresh();
         } catch (error) {
@@ -66,10 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
     fetchData();
-  }, [profile_user, token, userId]);
+  }, [profile_user, token, userId, router]);
 
-  // Lắng nghe sự kiện Refresh Token từ Interceptor
+  // Lắng nghe sự kiện Refresh Token / Đăng xuất từ Interceptor
   useEffect(() => {
+    // 1. Nhận Token mới
     const handleRefreshed = (event: any) => {
       const newToken = event.detail.token;
       if (newToken) {
@@ -85,10 +89,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    // 2. Bị ép đăng xuất (do refresh rớt)
+    const handleLoggedOut = () => {
+      console.log(
+        "🛑 AuthContext: Đã nhận được yêu cầu đăng xuất từ Interceptor. Đang dọn dẹp State...",
+      );
+      setToken(null);
+      setUserId(null);
+      setRoles([]);
+      setProfile_user(undefined);
+    };
+
     if (typeof window !== "undefined") {
       window.addEventListener("auth-token-refreshed", handleRefreshed);
-      return () =>
+      window.addEventListener("auth-logged-out", handleLoggedOut);
+
+      return () => {
         window.removeEventListener("auth-token-refreshed", handleRefreshed);
+        window.removeEventListener("auth-logged-out", handleLoggedOut);
+      };
     }
   }, []);
 
@@ -106,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile_user(payload.profile_user);
     setIsLoading(false);
   }, []);
+
   const contextValue = useMemo(
     () => ({
       token,
