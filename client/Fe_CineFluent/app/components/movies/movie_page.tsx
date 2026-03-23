@@ -12,12 +12,14 @@ const MoviePage = ({
   localSlot,
   top5Slot,
   bannerSlot,
+  historySlot,
 }: {
   categories: I_categories_data;
   youtubeSlot: React.ReactNode;
   localSlot: React.ReactNode;
   top5Slot: React.ReactNode;
   bannerSlot: React.ReactNode;
+  historySlot?: React.ReactNode;
 }) => {
   return (
     <div className="min-h-screen bg-slate-900">
@@ -34,6 +36,12 @@ const MoviePage = ({
         >
           {top5Slot}
         </PlatformSection>
+        
+        {historySlot && (
+          <div className="mt-12">
+            {historySlot}
+          </div>
+        )}
 
         <div className="flex space-x-2 justify-between items-center mt-12 mb-6">
           <button className="px-6 py-2.5 rounded-full text-sm font-semibold bg-blue-600 text-white shadow-lg shadow-blue-500/30 hover:bg-blue-500 transition-all">

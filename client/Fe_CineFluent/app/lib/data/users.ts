@@ -1,10 +1,10 @@
+import { cookies } from "next/headers";
 import { BeUrl } from "@/app/lib/services/api_client";
-import { SSR_Auth } from "@/app/lib/data/auth";
 
 export async function SSR_Users(page = 1, per_page = 5) {
   try {
-    const authData = await SSR_Auth();
-    const token = authData.token;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
 
     const response = await fetch(
       `${BeUrl}/users?page=${page}&per_page=${per_page}`,
@@ -33,8 +33,8 @@ export async function SSR_Users(page = 1, per_page = 5) {
 
 export async function SSR_Users_Stats() {
   try {
-    const authData = await SSR_Auth();
-    const token = authData.token;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
 
     const response = await fetch(`${BeUrl}/users/stats`, {
       headers: { Authorization: `Bearer ${token}` },

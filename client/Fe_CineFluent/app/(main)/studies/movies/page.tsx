@@ -6,16 +6,20 @@ import { Suspense } from "react";
 export const dynamic = "force-dynamic";
 
 import { BannerSkeleton } from "@/app/components/movies/skeletons/BannerSkeleton";
+import { SSR_Watch_History } from "@/app/lib/data/videos";
+import { HistoryList } from "@/app/components/movies/HistoryList";
 
 export default async function page() {
   // Fetch only categories - videos will be fetched by VideoFetcher
   const categories = await SSR_Categories(1, 10000);
+  const history = await SSR_Watch_History();
   const topCategoryId = 22;
   const hotCategoryId = 23;
 
   return (
     <MoviePage
       categories={categories}
+      historySlot={<HistoryList videos={history} />}
       bannerSlot={
         <Suspense fallback={<BannerSkeleton />}>
           <VideoFetcher

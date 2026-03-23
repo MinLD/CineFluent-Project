@@ -147,7 +147,6 @@ function AdminViewUser({ setClose, token, user }: Props) {
       return;
     }
 
-    changeData.append("token", token);
     changeData.append("userId", user.id);
     Array.from(changeData.entries()).forEach(([key, value]) => {
       console.log(`${key}: ${value}`);

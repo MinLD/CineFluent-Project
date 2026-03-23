@@ -67,7 +67,6 @@ function AdminCreateVideo({
     async (prevState: any, form: FormData) => {
       // Build final FormData
       const dataForm = new FormData();
-      dataForm.append("token", token);
       dataForm.append("source_type", activeTab);
       dataForm.append("level", formData.level);
       dataForm.append("status", formData.status);
@@ -148,7 +147,7 @@ function AdminCreateVideo({
 
     setIsSearchingTMDB(true);
     try {
-      const res = await searchTMDBAction(tmdbSearchQuery, token);
+      const res = await searchTMDBAction(tmdbSearchQuery);
       console.log("data in admin create video tmdb", res.data);
       if (res.success && res.code === 200) {
         setTmdbResults(res.data || []);

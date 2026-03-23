@@ -13,7 +13,9 @@ import {
   Api_search_tmdb,
   Api_create_report,
   Api_create_request,
+  Api_save_watch_history,
 } from "@/app/lib/services/video";
+import { cookies } from "next/headers";
 
 export async function getVideosAction(
   page = 1,
@@ -60,7 +62,8 @@ export async function getVideosAction(
 
 export async function importVideoAction(prevState: any, formData: FormData) {
   try {
-    const token = formData.get("token") as string;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
     const source_type = formData.get("source_type") as string;
 
     if (!token) return { success: false, error: "Thiếu thông tin token" };
@@ -97,9 +100,11 @@ export async function importVideoAction(prevState: any, formData: FormData) {
 export async function updateVideoAction(
   videoId: number,
   data: any | FormData,
-  token: string,
 ) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
     if (!token || !videoId) {
       return { success: false, error: "Thiếu thông tin cần thiết" };
     }
@@ -123,8 +128,11 @@ export async function updateVideoAction(
   }
 }
 
-export async function deleteVideoAction(videoId: number, token: string) {
+export async function deleteVideoAction(videoId: number) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
     if (!token || !videoId) {
       return { success: false, error: "Thiếu thông tin cần thiết" };
     }
@@ -149,9 +157,12 @@ export async function deleteVideoAction(videoId: number, token: string) {
 export async function uploadSubtitlesAction(
   id: number,
   formData: FormData,
-  token: string,
 ) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
+    if (!token) return { success: false, error: "Unauthorized" };
     const res = await Api_upload_subtitles(id, formData, token);
     revalidateTag("videos", "default");
     revalidatePath("/admin");
@@ -164,8 +175,12 @@ export async function uploadSubtitlesAction(
   }
 }
 
-export async function deleteSubtitlesAction(id: number, token: string) {
+export async function deleteSubtitlesAction(id: number) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
+    if (!token) return { success: false, error: "Unauthorized" };
     await Api_delete_all_subtitles(id, token);
     revalidateTag("videos", "default");
     revalidatePath("/admin");
@@ -178,8 +193,12 @@ export async function deleteSubtitlesAction(id: number, token: string) {
   }
 }
 
-export async function importYouTubeVideoAction(url: string, token: string) {
+export async function importYouTubeVideoAction(url: string) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
+    if (!token) return { success: false, error: "Unauthorized" };
     const result = await Api_import_youtube(url, token);
     let parsedData = result.data;
 
@@ -214,8 +233,11 @@ export async function importYouTubeVideoAction(url: string, token: string) {
   }
 }
 
-export async function searchTMDBAction(query: string, token: string) {
+export async function searchTMDBAction(query: string) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
     if (!token) return { success: false, error: "Thiếu token" };
     const res = await Api_search_tmdb(query, token);
     return {
@@ -234,9 +256,11 @@ export async function searchTMDBAction(query: string, token: string) {
 
 export async function createMovieRequestAction(
   data: { title: string; note: string },
-  token: string,
 ) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
     if (!token) return { success: false, error: "Vui lòng đăng nhập" };
     const res = await Api_create_request(data, token);
     return {
@@ -254,9 +278,11 @@ export async function createMovieRequestAction(
 
 export async function createVideoReportAction(
   data: { video_id: number; issue_type: string; description: string },
-  token: string,
 ) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
     if (!token) return { success: false, error: "Vui lòng đăng nhập" };
     const res = await Api_create_report(data, token);
     return {
@@ -269,5 +295,23 @@ export async function createVideoReportAction(
       success: false,
       error: error.response?.data?.message || "Lỗi khi gửi báo cáo",
     };
+  }
+}
+
+export async function saveWatchHistoryAction(
+  videoId: number,
+  data?: { last_position?: number; duration?: number },
+) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
+    if (!token) return { success: false, error: "Unauthorized" };
+    await Api_save_watch_history(videoId, token, data);
+    revalidatePath("/studies/movies");
+    return { success: true };
+  } catch (error: any) {
+    console.error("[saveWatchHistoryAction] Error:", error.message);
+    return { success: false, error: error.message };
   }
 }

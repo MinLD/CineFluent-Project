@@ -134,6 +134,12 @@ export default function UserMenu({ user }: { user: Ty_User }) {
                 onClick={() => setIsOpen(false)}
               />
               <MenuItem
+                href="/studies/roadmap"
+                icon={<Sparkles size={18} />}
+                label="Lộ trình của tôi"
+                onClick={() => setIsOpen(false)}
+              />
+              <MenuItem
                 href="/flashcards"
                 icon={<BookOpen size={18} />}
                 label="Học Flashcards"

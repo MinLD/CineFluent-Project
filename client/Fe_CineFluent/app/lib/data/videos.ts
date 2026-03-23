@@ -41,3 +41,29 @@ export async function SSR_All_Videos(
     };
   }
 }
+
+import { cookies } from "next/headers";
+
+export async function SSR_Watch_History() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
+    if (!token) return [];
+
+    const res = await fetch(`${BeUrl}/videos/history`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      next: { revalidate: 0 },
+    });
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    return data?.data || [];
+  } catch (error: any) {
+    console.error("[SSR_Watch_History] Error:", error.message);
+    return [];
+  }
+}

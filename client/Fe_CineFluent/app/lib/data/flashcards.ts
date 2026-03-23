@@ -1,11 +1,10 @@
+import { cookies } from "next/headers";
 import { BeUrl } from "@/app/lib/services/api_client";
-import { SSR_Auth } from "@/app/lib/data/auth";
 
 export async function SSR_Flashcards() {
   try {
-    // Thay vì đọc cookie thô (có thể đã hết hạn), hãy lấy token chuẩn nhất từ SSR_Auth
-    const authData = await SSR_Auth();
-    const token = authData.token;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
 
     if (!token) {
       return { flashcards: null, error: "401" };

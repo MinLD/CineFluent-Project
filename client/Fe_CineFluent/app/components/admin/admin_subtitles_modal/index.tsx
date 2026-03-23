@@ -83,7 +83,7 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
     if (viSubtitleFile) subForm.append("vi_file", viSubtitleFile);
 
     try {
-      const res = await uploadSubtitlesAction(Number(video.id), subForm, token);
+      const res = await uploadSubtitlesAction(Number(video.id), subForm);
       if (res.success) {
         toast.success(res.message || "Đã tải phụ đề lên thành công!", {
           id: toastId,
@@ -110,7 +110,7 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
 
     setIsSubmittingSub(true);
     try {
-      const res = await deleteSubtitlesAction(Number(video.id), token);
+      const res = await deleteSubtitlesAction(Number(video.id));
       if (res.success) {
         toast.success("Đã xóa sạch phụ đề!");
         setSubtitles([]);
@@ -129,7 +129,7 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
     setIsSubmittingSub(true);
     const toastId = toast.loading("Đang đồng bộ hóa file VTT vật lý...");
     try {
-      const res = await updateVideoAction(Number(video.id), {}, token);
+      const res = await updateVideoAction(Number(video.id), {});
       if (res.success) {
         toast.success("Đồng bộ hóa thành công!", { id: toastId });
         router.refresh();

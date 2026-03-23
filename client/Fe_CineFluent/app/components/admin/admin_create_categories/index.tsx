@@ -60,7 +60,6 @@ function AdminCreateCategories({ setClose, token }: Props) {
       if (image) {
         dataForm.append("avatar", image);
       }
-      dataForm.append("token", token);
 
       // ✅ Call Server Action
       const actionResult = await createCategoryAction(prevState, dataForm);

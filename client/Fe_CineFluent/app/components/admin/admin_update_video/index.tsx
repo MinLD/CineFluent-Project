@@ -69,7 +69,6 @@ function AdminUpdateVideo({ setClose, token, video, data_categories }: Props) {
       const actionResult = await updateVideoAction(
         Number(video.id),
         finalForm,
-        token,
       );
       const { success, message, error } = actionResult;
 

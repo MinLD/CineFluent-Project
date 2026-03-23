@@ -28,13 +28,7 @@ export default function RequestMoviePage() {
 
   const requestMutation = useMutation({
     mutationFn: async (data: RequestFormInputs) => {
-      const token =
-        document.cookie
-          .split("; ")
-          .find((row) => row.startsWith("access_token="))
-          ?.split("=")[1] || "";
-
-      const response = await createMovieRequestAction(data, token);
+      const response = await createMovieRequestAction(data);
       if (!response.success) throw new Error(response.error);
       return response.data;
     },

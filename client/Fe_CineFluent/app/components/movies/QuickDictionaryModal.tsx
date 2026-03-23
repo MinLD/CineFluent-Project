@@ -210,7 +210,6 @@ export function QuickDictionaryModal({
                 setSaving(true);
                 try {
                   const formData = new FormData();
-                  formData.append("token", token);
                   formData.append("video_id", videoId.toString());
                   formData.append("word", result.word);
                   formData.append("context_sentence", context);

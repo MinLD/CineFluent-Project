@@ -80,7 +80,6 @@ function AdminUpdateCategories({ setClose, token, category }: Props) {
 
       // Prepare FormData for server action
       update_data.append("categoryId", category.id);
-      update_data.append("token", token);
 
       update_data.forEach((value, key) => {
         console.log(`${key}:`, value);

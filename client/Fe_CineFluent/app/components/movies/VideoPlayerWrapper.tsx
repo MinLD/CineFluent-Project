@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { saveWatchHistoryAction } from "@/app/lib/actions/videos";
 
 interface VideoPlayerWrapperProps {
   video: I_Video;
@@ -137,6 +138,8 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   const safetyCheckTimeoutRef = useRef<any>(null); // Timeout để kích hoạt Double Safety sau khi seek xong
   const lastTimeRef = useRef(0);
   const lastIndexRef = useRef(-1);
+  const currentTimeRef = useRef(0);
+  const durationRef = useRef(0);
 
   // [VTT_OPTIMIZATION] Nạp file VTT qua Web Worker
   useEffect(() => {
@@ -177,6 +180,328 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     fetchAndParseVTT();
   }, [video.subtitle_vtt_url]);
 
+  // Handle Seek
+  const handleSeek = useCallback(
+    (time: number) => {
+      if (isDrive && driveVideoRef.current) {
+        driveVideoRef.current.currentTime = time;
+        setCurrentTime(time);
+        return;
+      }
+      if (!playerRef.current?.seekTo) return;
+      playerRef.current.seekTo(time, true);
+      setCurrentTime(time);
+      console.log("Seek to: ", time);
+    },
+    [isDrive],
+  );
+
+  // Handle Play/Pause
+  const handlePlayPause = useCallback(() => {
+    if (isDrive && driveVideoRef.current) {
+      if (driveVideoRef.current.paused) driveVideoRef.current.play();
+      else driveVideoRef.current.pause();
+      return;
+    }
+
+    if (!playerRef.current) return;
+
+    if (isPlaying) {
+      playerRef.current.pauseVideo();
+      // [PROGRESS] Save on pause - using refs to ensure latest values
+      saveWatchHistoryAction(video.id, {
+        last_position: currentTimeRef.current,
+        duration: durationRef.current,
+      });
+    } else {
+      playerRef.current.playVideo();
+    }
+  }, [isPlaying, isDrive, video.id]);
+
+  // Handle Volume Change
+  const handleVolumeChange = useCallback(
+    (newVolume: number) => {
+      if (isDrive && driveVideoRef.current) {
+        driveVideoRef.current.volume = newVolume / 100;
+        setVolume(newVolume);
+        return;
+      }
+      if (!playerRef.current?.setVolume) return;
+      playerRef.current.setVolume(newVolume);
+      setVolume(newVolume);
+    },
+    [isDrive],
+  );
+
+  // Handle Playback Rate Change
+  const handlePlaybackRateChange = useCallback(
+    (rate: number) => {
+      if (isDrive && driveVideoRef.current) {
+        driveVideoRef.current.playbackRate = rate;
+        setPlaybackRate(rate);
+        return;
+      }
+      if (!playerRef.current?.setPlaybackRate) return;
+      playerRef.current.setPlaybackRate(rate);
+      setPlaybackRate(rate);
+    },
+    [isDrive],
+  );
+
+  const handleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }, []);
+
+  // --- DICTIONARY HANDLERS ---
+  const handleVideoClick = useCallback(() => {
+    // Prevent if modals are open
+    if (shadowingSubtitle || dictationSubtitle || selectedWord) return;
+
+    if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current);
+
+    // Set animation based on current state (if playing, we are about to pause)
+    setPlayAnimation(isPlaying ? "pause" : "play");
+
+    // Toggle play/pause
+    handlePlayPause();
+
+    animationTimeoutRef.current = setTimeout(() => {
+      setPlayAnimation(null);
+    }, 600);
+  }, [
+    isPlaying,
+    handlePlayPause,
+    shadowingSubtitle,
+    dictationSubtitle,
+    selectedWord,
+  ]);
+
+  const handleWordClick = useCallback(
+    (word: string, context: string) => {
+      if (isDrive && driveVideoRef.current) driveVideoRef.current.pause();
+      else if (playerRef.current?.pauseVideo) {
+        playerRef.current.pauseVideo();
+      }
+      // Clean word: remove punctuation
+      const cleanWord = word.replace(/[.,!?;:"()]/g, "");
+      if (cleanWord.trim().length > 0) {
+        setSelectedWord({ word: cleanWord, context });
+      }
+    },
+    [isDrive],
+  );
+
+  const closeDictionary = useCallback(() => {
+    setSelectedWord(null);
+  }, []);
+
+  // Handle subtitle click
+  const handleSubtitleClick = useCallback(
+    (time: number) => {
+      // 1. Force close modal & clear timeouts (Safe to call unconditionally)
+      setShadowingSubtitle(null);
+      if (replayTimeoutRef.current) clearTimeout(replayTimeoutRef.current);
+      if (safetyCheckTimeoutRef.current)
+        clearTimeout(safetyCheckTimeoutRef.current);
+      playingSegmentEndTimeRef.current = null;
+      activeSegmentCallbackRef.current = null;
+
+      handleSeek(time);
+      if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
+      else if (playerRef.current?.playVideo) {
+        playerRef.current.playVideo();
+      }
+    },
+    [handleSeek, isDrive],
+  );
+
+  // --- REUSABLE PLAYBACK LOGIC ---
+  const playSegmentAndThen = useCallback(
+    (subtitle: I_Subtitle, onComplete: () => void, bufferMs: number = 150) => {
+      // 1. Clear existing timeout
+      if (replayTimeoutRef.current) clearTimeout(replayTimeoutRef.current);
+      if (safetyCheckTimeoutRef.current)
+        clearTimeout(safetyCheckTimeoutRef.current);
+
+      const durationMs = (subtitle.end_time - subtitle.start_time) * 1000;
+
+      // 2. Clear old state immediately
+      playingSegmentEndTimeRef.current = null;
+      activeSegmentCallbackRef.current = onComplete; // Store callback
+
+      // 3. Seek to start
+      handleSeek(subtitle.start_time);
+
+      // 4. Play
+      if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
+      else if (playerRef.current?.playVideo) {
+        playerRef.current.playVideo();
+      }
+
+      // 5. Activate Double Safety Check after 500ms (to skip seeking lag)
+      safetyCheckTimeoutRef.current = setTimeout(() => {
+        playingSegmentEndTimeRef.current = subtitle.end_time;
+      }, 800);
+
+      // 5. Set timeout to Pause & Execute Callback
+      replayTimeoutRef.current = setTimeout(() => {
+        if (isDrive && driveVideoRef.current) driveVideoRef.current.pause();
+        else if (playerRef.current?.pauseVideo) {
+          playerRef.current.pauseVideo();
+        }
+        playingSegmentEndTimeRef.current = null; // Reset ref
+
+        // Gọi callback (nếu chưa được gọi bởi Interval)
+        if (activeSegmentCallbackRef.current) {
+          activeSegmentCallbackRef.current();
+          activeSegmentCallbackRef.current = null;
+        }
+      }, durationMs + bufferMs);
+    },
+    [handleSeek, isDrive],
+  );
+
+  // --- SHADOWING HANDLERS ---
+  const handlePracticeClick = useCallback(
+    (subtitle: I_Subtitle) => {
+      // 1. Pause video
+      if (isDrive && driveVideoRef.current) driveVideoRef.current.pause();
+      else if (playerRef.current?.pauseVideo) {
+        playerRef.current.pauseVideo();
+      }
+      // 2. Open Modal
+      setShadowingSubtitle(subtitle);
+    },
+    [isDrive],
+  );
+
+  const handleAudioClose = useCallback(() => {
+    // Just close modal, don't force resume (let user decide or use Next)
+    setShadowingSubtitle(null);
+  }, []);
+
+  const handleAudioNext = useCallback(() => {
+    setShadowingSubtitle(null);
+    // Resume video
+    if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
+    else if (playerRef.current?.playVideo) {
+      playerRef.current.playVideo();
+    }
+  }, [isDrive]);
+
+  const handleReplayOriginal = useCallback(() => {
+    if (!shadowingSubtitle) return;
+    // Hide modal -> Play segment -> Show modal
+    setShadowingSubtitle(null);
+    playSegmentAndThen(shadowingSubtitle, () => {
+      setShadowingSubtitle(shadowingSubtitle);
+    });
+  }, [shadowingSubtitle, playSegmentAndThen]);
+
+  const handleShowShadowingWhenClickSub = useCallback(
+    (time: number, subtitle: I_Subtitle) => {
+      // Force close any previous modal
+      setShadowingSubtitle(null);
+
+      // Play segment -> Show modal
+      // Note: "time" arg is ignored in favor of subtitle.start_time in helper
+      playSegmentAndThen(subtitle, () => {
+        setShadowingSubtitle(subtitle);
+      });
+    },
+    [playSegmentAndThen],
+  );
+
+  // Handle Dictation Click from Panel
+  const handleDictationClick = useCallback(
+    (subtitle: I_Subtitle) => {
+      // Force close any previous dictation to reset
+      setDictationSubtitle(null);
+
+      // Play segment -> Show Dictation Modal
+      playSegmentAndThen(subtitle, () => {
+        setDictationSubtitle(subtitle);
+        setIsBlurred(true);
+      });
+    },
+    [playSegmentAndThen],
+  );
+
+  const handleReplayVideo = useCallback(
+    (subtitle: I_Subtitle) => {
+      // Play segment -> Show Dictation Modal
+      playSegmentAndThen(subtitle, () => {});
+    },
+    [playSegmentAndThen],
+  );
+
+  const handleDictationNext = useCallback(() => {
+    if (!dictationSubtitle || !video.subtitles) return;
+    const currentIndex = video.subtitles.findIndex(
+      (s) => s.id === dictationSubtitle.id,
+    );
+    if (currentIndex !== -1 && currentIndex < video.subtitles.length - 1) {
+      const nextSubtitle = video.subtitles[currentIndex + 1];
+      handleDictationClick(nextSubtitle);
+    } else {
+      // Hết bài -> Đóng modal và phát tiếp
+      setDictationSubtitle(null);
+      if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
+      else if (playerRef.current) playerRef.current.playVideo();
+    }
+  }, [dictationSubtitle, video.subtitles, handleDictationClick, isDrive]);
+
+  // Record watch history on mount & Handle Auto-Resume
+  useEffect(() => {
+    if (video.id) {
+      saveWatchHistoryAction(video.id);
+    }
+  }, [video.id]);
+
+  // Handle Resume Position
+  const hasResumedRef = useRef(false);
+  useEffect(() => {
+    if (
+      hasStarted &&
+      !hasResumedRef.current &&
+      video.user_history?.last_position
+    ) {
+      const lastPos = video.user_history.last_position;
+      // Tránh resume nếu đã ở gần cuối phim (>95%)
+      if (
+        video.user_history.duration &&
+        lastPos / video.user_history.duration < 0.95
+      ) {
+        console.log("Resuming from last position:", lastPos);
+        handleSeek(lastPos);
+      }
+      hasResumedRef.current = true;
+    }
+  }, [hasStarted, video.user_history, handleSeek]);
+
+  // Heartbeat Progress Sync (Every 30 seconds)
+  useEffect(() => {
+    if (!isPlaying || !video.id) return;
+
+    const heartbeatInterval = setInterval(() => {
+      // Use refs to get absolute latest values without effect dependency
+      if (currentTimeRef.current > 0) {
+        saveWatchHistoryAction(video.id, {
+          last_position: currentTimeRef.current,
+          duration: durationRef.current,
+        });
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(heartbeatInterval);
+  }, [isPlaying, video.id]); // Removed currentTime and duration from dependencies
+
   // Initialize YouTube Player
   useEffect(() => {
     if (isDrive || !youtubeId || isInitializedRef.current) return;
@@ -212,6 +537,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
             // Lấy duration
             const dur = event.target.getDuration();
             setDuration(dur);
+            durationRef.current = dur;
             // Set volume ban đầu
             event.target.setVolume(volume);
           },
@@ -301,7 +627,9 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       const onLoadedData = () => setIsLoading(false);
       const onLoadedMetadata = () => {
         if (vid) {
-          setDuration(vid.duration);
+          const dur = vid.duration;
+          setDuration(dur);
+          durationRef.current = dur;
           vid.volume = volume / 100;
         }
       };
@@ -336,6 +664,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
           time = playerRef.current.getCurrentTime();
         }
         setCurrentTime(time);
+        currentTimeRef.current = time;
 
         // [VTT_OPTIMIZATION] Decoupled Index Calculation
         // Chỉ cập nhật activeIndex khi thực sự bước sang câu mới
@@ -373,272 +702,6 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [isPlaying, isDrive]);
-
-  // Handle Play/Pause
-  const handlePlayPause = useCallback(() => {
-    if (isDrive && driveVideoRef.current) {
-      if (driveVideoRef.current.paused) driveVideoRef.current.play();
-      else driveVideoRef.current.pause();
-      return;
-    }
-
-    if (!playerRef.current) return;
-
-    if (isPlaying) {
-      playerRef.current.pauseVideo();
-    } else {
-      playerRef.current.playVideo();
-    }
-  }, [isPlaying, isDrive]);
-
-  // Handle Seek
-  const handleSeek = useCallback(
-    (time: number) => {
-      if (isDrive && driveVideoRef.current) {
-        driveVideoRef.current.currentTime = time;
-        setCurrentTime(time);
-        return;
-      }
-      if (!playerRef.current?.seekTo) return;
-      playerRef.current.seekTo(time, true);
-      setCurrentTime(time);
-      console.log("Seek to: ", time);
-    },
-    [isDrive],
-  );
-
-  // Handle Volume Change
-  const handleVolumeChange = useCallback(
-    (newVolume: number) => {
-      if (isDrive && driveVideoRef.current) {
-        driveVideoRef.current.volume = newVolume / 100;
-        setVolume(newVolume);
-        return;
-      }
-      if (!playerRef.current?.setVolume) return;
-      playerRef.current.setVolume(newVolume);
-      setVolume(newVolume);
-    },
-    [isDrive],
-  );
-
-  // Handle Playback Rate Change
-  const handlePlaybackRateChange = useCallback(
-    (rate: number) => {
-      if (isDrive && driveVideoRef.current) {
-        driveVideoRef.current.playbackRate = rate;
-        setPlaybackRate(rate);
-        return;
-      }
-      if (!playerRef.current?.setPlaybackRate) return;
-      playerRef.current.setPlaybackRate(rate);
-      setPlaybackRate(rate);
-    },
-    [isDrive],
-  );
-
-  const handleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
-  }, []);
-  // --- DICTIONARY HANDLERS ---
-  const handleVideoClick = useCallback(() => {
-    // Prevent if modals are open
-    if (shadowingSubtitle || dictationSubtitle || selectedWord) return;
-
-    if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current);
-
-    // Set animation based on current state (if playing, we are about to pause)
-    setPlayAnimation(isPlaying ? "pause" : "play");
-
-    // Toggle play/pause
-    handlePlayPause();
-
-    animationTimeoutRef.current = setTimeout(() => {
-      setPlayAnimation(null);
-    }, 600);
-  }, [
-    isPlaying,
-    handlePlayPause,
-    shadowingSubtitle,
-    dictationSubtitle,
-    selectedWord,
-  ]);
-
-  const handleWordClick = useCallback((word: string, context: string) => {
-    if (isDrive && driveVideoRef.current) driveVideoRef.current.pause();
-    else if (playerRef.current?.pauseVideo) {
-      playerRef.current.pauseVideo();
-    }
-    // Clean word: remove punctuation
-    const cleanWord = word.replace(/[.,!?;:"()]/g, "");
-    if (cleanWord.trim().length > 0) {
-      setSelectedWord({ word: cleanWord, context });
-    }
-  }, []);
-
-  const closeDictionary = useCallback(() => {
-    setSelectedWord(null);
-  }, []);
-
-  // Handle subtitle click
-  const handleSubtitleClick = useCallback(
-    (time: number) => {
-      // 1. Force close modal & clear timeouts (Safe to call unconditionally)
-      setShadowingSubtitle(null);
-      if (replayTimeoutRef.current) clearTimeout(replayTimeoutRef.current);
-      if (safetyCheckTimeoutRef.current)
-        clearTimeout(safetyCheckTimeoutRef.current);
-      playingSegmentEndTimeRef.current = null;
-      activeSegmentCallbackRef.current = null;
-
-      handleSeek(time);
-      if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
-      else if (playerRef.current?.playVideo) {
-        playerRef.current.playVideo();
-      }
-    },
-    [handleSeek, isDrive],
-  );
-
-  // --- REUSABLE PLAYBACK LOGIC ---
-  const playSegmentAndThen = useCallback(
-    (subtitle: I_Subtitle, onComplete: () => void, bufferMs: number = 150) => {
-      // 1. Clear existing timeout
-      if (replayTimeoutRef.current) clearTimeout(replayTimeoutRef.current);
-      if (safetyCheckTimeoutRef.current)
-        clearTimeout(safetyCheckTimeoutRef.current);
-
-      const durationMs = (subtitle.end_time - subtitle.start_time) * 1000;
-
-      // 2. Clear old state immediately
-      playingSegmentEndTimeRef.current = null;
-      activeSegmentCallbackRef.current = onComplete; // Store callback
-
-      // 3. Seek to start
-      handleSeek(subtitle.start_time);
-
-      // 4. Play
-      if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
-      else if (playerRef.current?.playVideo) {
-        playerRef.current.playVideo();
-      }
-
-      // 5. Activate Double Safety Check after 500ms (to skip seeking lag)
-      safetyCheckTimeoutRef.current = setTimeout(() => {
-        playingSegmentEndTimeRef.current = subtitle.end_time;
-      }, 800);
-
-      // 5. Set timeout to Pause & Execute Callback
-      replayTimeoutRef.current = setTimeout(() => {
-        if (isDrive && driveVideoRef.current) driveVideoRef.current.pause();
-        else if (playerRef.current?.pauseVideo) {
-          playerRef.current.pauseVideo();
-        }
-        playingSegmentEndTimeRef.current = null; // Reset ref
-
-        // Gọi callback (nếu chưa được gọi bởi Interval)
-        if (activeSegmentCallbackRef.current) {
-          activeSegmentCallbackRef.current();
-          activeSegmentCallbackRef.current = null;
-        }
-      }, durationMs + bufferMs);
-    },
-    [handleSeek],
-  );
-
-  // --- SHADOWING HANDLERS ---
-  const handlePracticeClick = useCallback((subtitle: I_Subtitle) => {
-    // 1. Pause video
-    if (isDrive && driveVideoRef.current) driveVideoRef.current.pause();
-    else if (playerRef.current?.pauseVideo) {
-      playerRef.current.pauseVideo();
-    }
-    // 2. Open Modal
-    setShadowingSubtitle(subtitle);
-  }, []);
-
-  const handleAudioClose = useCallback(() => {
-    // Just close modal, don't force resume (let user decide or use Next)
-    setShadowingSubtitle(null);
-  }, []);
-
-  const handleAudioNext = useCallback(() => {
-    setShadowingSubtitle(null);
-    // Resume video
-    if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
-    else if (playerRef.current?.playVideo) {
-      playerRef.current.playVideo();
-    }
-  }, []);
-
-  const handleReplayOriginal = useCallback(() => {
-    if (!shadowingSubtitle) return;
-    // Hide modal -> Play segment -> Show modal
-    setShadowingSubtitle(null);
-    playSegmentAndThen(shadowingSubtitle, () => {
-      setShadowingSubtitle(shadowingSubtitle);
-    });
-  }, [shadowingSubtitle, playSegmentAndThen]);
-
-  const handleShowShadowingWhenClickSub = useCallback(
-    (time: number, subtitle: I_Subtitle) => {
-      // Force close any previous modal
-      setShadowingSubtitle(null);
-
-      // Play segment -> Show modal
-      // Note: "time" arg is ignored in favor of subtitle.start_time in helper
-      playSegmentAndThen(subtitle, () => {
-        setShadowingSubtitle(subtitle);
-      });
-    },
-    [playSegmentAndThen],
-  );
-
-  // Handle Dictation Click from Panel
-  const handleDictationClick = useCallback(
-    (subtitle: I_Subtitle) => {
-      // Force close any previous dictation to reset
-      setDictationSubtitle(null);
-
-      // Play segment -> Show Dictation Modal
-      playSegmentAndThen(subtitle, () => {
-        setDictationSubtitle(subtitle);
-        setIsBlurred(true);
-      });
-    },
-    [playSegmentAndThen],
-  );
-  const handleReplayVideo = useCallback(
-    (subtitle: I_Subtitle) => {
-      // Force close any previous dictation to reset
-
-      // Play segment -> Show Dictation Modal
-      playSegmentAndThen(subtitle, () => {});
-    },
-    [playSegmentAndThen],
-  );
-
-  const handleDictationNext = useCallback(() => {
-    if (!dictationSubtitle || !video.subtitles) return;
-    const currentIndex = video.subtitles.findIndex(
-      (s) => s.id === dictationSubtitle.id,
-    );
-    if (currentIndex !== -1 && currentIndex < video.subtitles.length - 1) {
-      const nextSubtitle = video.subtitles[currentIndex + 1];
-      handleDictationClick(nextSubtitle);
-    } else {
-      // Hết bài -> Đóng modal và phát tiếp
-      setDictationSubtitle(null);
-      if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
-      else if (playerRef.current) playerRef.current.playVideo();
-    }
-  }, [dictationSubtitle, video.subtitles, handleDictationClick]);
 
   // Keyboard shortcuts
   useEffect(() => {

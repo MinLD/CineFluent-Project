@@ -140,6 +140,23 @@ def get_detail(slug: str):
 
     res_data = VideoDetailSchema().dump(video)
 
+    # Nếu User đã login, đính kèm thông tin lịch sử xem (last_position)
+    from flask_jwt_extended import verify_jwt_in_request
+    from ..models.models_model import WatchHistory
+    try:
+        verify_jwt_in_request(optional=True)
+        uid = get_jwt_identity()
+        if uid:
+            history = WatchHistory.query.filter_by(user_id=uid, video_id=video.id).first()
+            if history:
+                res_data['user_history'] = {
+                    "last_position": history.last_position,
+                    "duration": history.duration,
+                    "updated_at": history.watched_at.isoformat()
+                }
+    except:
+        pass
+
     return success_response(data=res_data)
 
 @video_bp.route('/<int:video_id>', methods=['GET'])
@@ -196,6 +213,56 @@ def update_video_info(video_id):
         data=VideoDetailSchema().dump(updated_video), 
         message="Cập nhật phim thành công"
     )
+
+@video_bp.route('/<int:video_id>/watch', methods=['POST'])
+@jwt_required()
+def save_watch_history(video_id):
+    from ..models.models_model import WatchHistory
+    uid = get_jwt_identity()
+    
+    video = Video.query.get(video_id)
+    if not video:
+        return error_response("Video not found", 404)
+        
+    data = request.get_json() or {}
+    last_pos = data.get('last_position', 0)
+    duration = data.get('duration', 0)
+        
+    history = WatchHistory.query.filter_by(user_id=uid, video_id=video_id).first()
+    from datetime import datetime
+    if history:
+        history.watched_at = datetime.utcnow()
+        if last_pos > 0: history.last_position = last_pos
+        if duration > 0: history.duration = duration
+    else:
+        history = WatchHistory(user_id=uid, video_id=video_id, last_position=last_pos, duration=duration)
+        db.session.add(history)
+        
+    db.session.commit()
+    return success_response(message="Watch history updated")
+
+@video_bp.route('/history', methods=['GET'])
+@jwt_required()
+def get_watch_history():
+    from ..models.models_model import WatchHistory
+    uid = get_jwt_identity()
+    
+    # Lấy 20 phim vừa xem gần nhất
+    history_items = WatchHistory.query.filter_by(user_id=uid)\
+        .order_by(WatchHistory.watched_at.desc())\
+        .limit(20).all()
+        
+    videos = []
+    for item in history_items:
+        if item.video:
+            v_data = VideoSchema().dump(item.video)
+            v_data['user_history'] = {
+                "last_position": item.last_position,
+                "duration": item.duration
+            }
+            videos.append(v_data)
+            
+    return success_response(data=videos)
 
 @video_bp.route('/<int:video_id>/subtitles', methods=['GET'])
 def get_subtitles(video_id, ordered_subs=None):
@@ -367,13 +434,13 @@ def upload_subtitles(video_id):
         
         # Gọi hàm xử lý hợp nhất (Tự động nhận diện định dạng bên trong service)
         count = save_subtitles_from_content(video_id, en_content, vi_content)
-        
         return success_response(
             data={"count": count}, 
             message=f"Đã xử lý và lưu thành công {count} dòng phụ đề. (Hệ thống đã tự động nhận diện từ file bạn gửi)"
         )
     except Exception as e:
         return error_response(f"Lỗi khi xử lý phụ đề: {str(e)}", 500)
+
 
 @video_bp.route('/<int:video_id>/subtitles', methods=['DELETE'])
 @jwt_required()

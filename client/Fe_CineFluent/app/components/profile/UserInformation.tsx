@@ -105,9 +105,6 @@ export const UserInformation = () => {
         console.log("Dữ liệu thay đổi cần gửi đi:", changedData);
 
         const formData = new FormData();
-        if (token) {
-          formData.append("token", token);
-        }
 
         Object.keys(changedData).forEach((key) => {
           // @ts-ignore

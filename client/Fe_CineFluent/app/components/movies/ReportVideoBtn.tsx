@@ -4,8 +4,6 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
 import { Flag, X, Send, AlertCircle } from "lucide-react";
-import { axiosClient, BeUrl } from "@/app/lib/services/api_client";
-
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/lib/hooks/useAuth";
 import { toast } from "sonner";
@@ -39,18 +37,11 @@ export function ReportVideoBtn({ videoId }: { videoId: number }) {
 
   const reportMutation = useMutation({
     mutationFn: async (data: ReportFormInputs) => {
-      const token =
-        document.cookie
-          .split("; ")
-          .find((row) => row.startsWith("access_token="))
-          ?.split("=")[1] || "";
-
       const response = await createVideoReportAction(
         {
           ...data,
           video_id: videoId,
         },
-        token,
       );
 
       if (!response.success) throw new Error(response.error);

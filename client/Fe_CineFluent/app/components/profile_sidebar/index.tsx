@@ -38,7 +38,6 @@ export default function ProfileSidebar() {
     setIsUploading(true);
     try {
       const formData = new FormData();
-      if (token) formData.append("token", token);
       formData.append("avatar", file);
 
       const res = await updateUserProfileAction(formData);

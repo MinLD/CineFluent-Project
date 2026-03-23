@@ -123,3 +123,23 @@ export const Api_create_report = (data: any, token: string) => {
     },
   });
 };
+
+export const Api_save_watch_history = (
+  videoId: number,
+  token: string,
+  data?: { last_position?: number; duration?: number },
+) => {
+  return axiosClient.post(`${BASE_URL}/${videoId}/watch`, data || {}, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+export const Api_get_watch_history = (token: string) => {
+  return axiosClient.get(`${BASE_URL}/history`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};

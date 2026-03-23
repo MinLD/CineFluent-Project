@@ -36,6 +36,11 @@ export interface I_Video {
     name: string;
     slug: string;
   }[];
+  user_history?: {
+    last_position?: number;
+    duration?: number;
+    updated_at?: string;
+  };
   created_at: string;
   updated_at: string;
 }

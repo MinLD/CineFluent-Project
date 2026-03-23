@@ -7,11 +7,13 @@ import {
   Api_delete_category,
   Api_get_all_skills_in_category,
 } from "@/app/lib/services/categories";
+import { cookies } from "next/headers";
 
 
 export async function createCategoryAction(prevState: any, formData: FormData) {
   try {
-    const token = formData.get("token") as string;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
 
     if (!token) {
       return {
@@ -19,6 +21,8 @@ export async function createCategoryAction(prevState: any, formData: FormData) {
         error: "Không tìm thấy token xác thực",
       };
     }
+    // We can still delete it from formData if we want to be clean, 
+    // though the client shouldn't be sending it anymore.
     formData.delete("token");
 
     // ✅ API call on server side (credentials safe)
@@ -47,8 +51,9 @@ export async function createCategoryAction(prevState: any, formData: FormData) {
 
 export async function updateCategoryAction(prevState: any, formData: FormData) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
     const categoryId = formData.get("categoryId") as string;
-    const token = formData.get("token") as string;
 
     if (!token || !categoryId) {
       return {
@@ -78,8 +83,11 @@ export async function updateCategoryAction(prevState: any, formData: FormData) {
   }
 }
 
-export async function deleteCategoryAction(categoryId: string, token: string) {
+export async function deleteCategoryAction(categoryId: string) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
     if (!token || !categoryId) {
       return {
         success: false,

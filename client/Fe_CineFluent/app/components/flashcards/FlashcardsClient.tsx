@@ -60,7 +60,6 @@ export default function FlashcardsClient({
     setLoadingHistory(true);
     try {
       const formData = new FormData();
-      formData.append("token", token);
       const res = await getExercisesHistoryAction(null, formData);
       if (res.success) {
         setHistory(res.data.exercises);
@@ -94,7 +93,6 @@ export default function FlashcardsClient({
     try {
       const selectedCards = flashcards.slice(0, 5);
       const formData = new FormData();
-      if (token) formData.append("token", token);
       formData.append("flashcards", JSON.stringify(selectedCards));
 
       const response = await generateQuizAction(null, formData);
@@ -153,7 +151,6 @@ export default function FlashcardsClient({
       const score = total > 0 ? (correct / total) * 10 : 0;
 
       const formData = new FormData();
-      formData.append("token", token);
       formData.append("exerciseId", currentExerciseId.toString());
       formData.append("score", score.toFixed(1));
       formData.append("userAnswers", JSON.stringify(userAnswers));
@@ -179,7 +176,6 @@ export default function FlashcardsClient({
     if (!token) return;
     try {
       const formData = new FormData();
-      formData.append("token", token);
       formData.append("exerciseId", id.toString());
       const res = await resetExerciseAction(null, formData);
       if (res.success) {

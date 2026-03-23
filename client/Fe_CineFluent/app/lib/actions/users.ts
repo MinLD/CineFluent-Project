@@ -4,10 +4,12 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { Api_Admin_User, Api_Delete_User } from "@/app/lib/services/user";
 import { I_FormUser } from "@/app/lib/types/users";
 import { BeUrl } from "@/app/lib/services/api_client";
+import { cookies } from "next/headers";
 
 export async function createUserAction(prevState: any, formData: FormData) {
   try {
-    const token = formData.get("token") as string;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
 
     if (!token) {
       return {
@@ -51,8 +53,11 @@ export async function createUserAction(prevState: any, formData: FormData) {
 /**
  * ✅ Next 16 Server Action: Delete User (Admin)
  */
-export async function deleteUserAction(userId: string, token: string) {
+export async function deleteUserAction(userId: string) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
     if (!token || !userId) {
       return {
         success: false,
@@ -84,7 +89,8 @@ export async function deleteUserAction(userId: string, token: string) {
  */
 export async function updateUserAction(prevState: any, formData: FormData) {
   try {
-    const token = formData.get("token") as string;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
     const userId = formData.get("userId") as string;
 
     if (!token || !userId) {
@@ -130,7 +136,8 @@ export async function updateUserAction(prevState: any, formData: FormData) {
 
 export async function updateUserProfileAction(formData: FormData) {
   try {
-    const token = formData.get("token") as string;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
 
     // ✅ API call on server side
     const response = await fetch(`${BeUrl}/users/profile`, {

@@ -42,6 +42,25 @@ export function VideoCard({ video }: VideoCardProps) {
           <div className="absolute top-2 right-2">
             <span className="text-white text-[12px] font-semibold">HD</span>
           </div>
+
+          {/* Progress Bar */}
+          {video.user_history &&
+            video.user_history.last_position &&
+            video.user_history.duration && (
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+                <div
+                  className="h-full bg-blue-500 transition-all duration-300"
+                  style={{
+                    width: `${Math.min(
+                      (video.user_history.last_position /
+                        video.user_history.duration) *
+                        100,
+                      100,
+                    )}%`,
+                  }}
+                />
+              </div>
+            )}
         </div>
 
         {/* Info */}

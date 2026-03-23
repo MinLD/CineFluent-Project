@@ -6,11 +6,9 @@ import { importYouTubeVideoAction } from "@/app/lib/actions/videos";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/app/lib/hooks/useAuth";
 import Modal_Show from "@/app/components/modal_show";
 
 export function HeroSection() {
-  const { token } = useAuth();
   const [videoLink, setVideoLink] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
@@ -18,7 +16,7 @@ export function HeroSection() {
 
   // TanStack Query mutation for importing video
   const importMutation = useMutation({
-    mutationFn: (url: string) => importYouTubeVideoAction(url, token || ""),
+    mutationFn: (url: string) => importYouTubeVideoAction(url),
     onSuccess: (data) => {
       console.log(data);
       if (data.success) {

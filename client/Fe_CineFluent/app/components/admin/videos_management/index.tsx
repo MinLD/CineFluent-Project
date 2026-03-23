@@ -89,7 +89,7 @@ function Videos_Management({ data_videos, data_categories }: Props) {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await deleteVideoAction(id, token);
+      const res = await deleteVideoAction(id);
       if (res.success) {
         toast.success("Xóa phim thành công!");
         fetchFilteredVideos(pagination.current_page);
