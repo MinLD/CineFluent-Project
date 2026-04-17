@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Play } from "lucide-react";
 import { I_Video } from "@/app/lib/types/video";
+import { MovieDifficultyBadge } from "@/app/components/movies/MovieDifficultyBadge";
 
 interface VideoCardProps {
   video: I_Video;
@@ -77,6 +78,11 @@ export function VideoCard({ video }: VideoCardProps) {
                 {video.release_year}
               </h3>
             </div>
+            {video.ai_analysis && video.ai_analysis.status !== "FAILED" && (
+              <div className="mt-1">
+                <MovieDifficultyBadge analysis={video.ai_analysis} />
+              </div>
+            )}
           </div>
         </div>
       </div>

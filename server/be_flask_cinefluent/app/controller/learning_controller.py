@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..services.learning_service import evaluate_audio_shadowing_service, get_quick_dictionary_service, generate_flashcard_exercises_service
 from ..utils.response import success_response, error_response

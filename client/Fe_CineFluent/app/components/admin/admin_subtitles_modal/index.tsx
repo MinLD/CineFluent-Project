@@ -1,19 +1,23 @@
 "use client";
 
-import { X, Check, Languages, Plus, Trash2, Globe } from "lucide-react";
+import { Check, Globe, Languages, Plus, Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import Spanning from "@/app/components/spanning";
 import Skeleton from "react-loading-skeleton";
-import "react-loading-skeleton/dist/skeleton.css";
-import { I_Video } from "@/app/lib/types/video";
+import { toast } from "sonner";
+
+import Spanning from "@/app/components/spanning";
+import { MovieDifficultyBadge } from "@/app/components/movies/MovieDifficultyBadge";
 import {
-  uploadSubtitlesAction,
+  analyzeVideoDifficultyAction,
   deleteSubtitlesAction,
   updateVideoAction,
+  uploadSubtitlesAction,
 } from "@/app/lib/actions/videos";
 import { FeApiProxyUrl } from "@/app/lib/services/api_client";
+import { I_Video } from "@/app/lib/types/video";
+
+import "react-loading-skeleton/dist/skeleton.css";
 
 type Props = {
   setClose: () => void;
@@ -24,26 +28,45 @@ type Props = {
 export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
   const router = useRouter();
   const [subtitles, setSubtitles] = useState<any[]>([]);
+  const [subtitleVttUrl, setSubtitleVttUrl] = useState<string | null>(
+    video.subtitle_vtt_url || null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmittingSub, setIsSubmittingSub] = useState(false);
-
-  // States for Subtitle Uploads
+  const [isAnalyzingAi, setIsAnalyzingAi] = useState(false);
   const [enSubtitleFile, setEnSubtitleFile] = useState<File | null>(null);
   const [viSubtitleFile, setViSubtitleFile] = useState<File | null>(null);
 
-  const fetchSubtitles = async () => {
-    if (!video.subtitle_vtt_url) {
-      setIsLoading(false);
-      setSubtitles([]);
-      return;
+  const fetchSubtitlesFromDb = async () => {
+    const response = await fetch(`${FeApiProxyUrl}/videos/${video.id}/subtitles`);
+    if (!response.ok) {
+      throw new Error("Khong the tai subtitle tu database");
     }
 
+    const payload = await response.json();
+    setSubtitles(payload?.data || []);
+  };
+
+  const fetchSubtitles = async (nextVttUrl?: string | null) => {
+    const vttUrl = nextVttUrl ?? subtitleVttUrl;
     setIsLoading(true);
     try {
-      const response = await fetch(`${FeApiProxyUrl}${video.subtitle_vtt_url}`);
+      if (!vttUrl) {
+        await fetchSubtitlesFromDb();
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${FeApiProxyUrl}${vttUrl}`);
+      if (!response.ok) {
+        throw new Error("Khong the tai file VTT");
+      }
       const vttText = await response.text();
 
-      // Khởi tạo Web Worker
+      if (!vttText.trim()) {
+        throw new Error("File VTT rong");
+      }
+
       const worker = new Worker(
         new URL("@/app/utils/vtt.worker.ts", import.meta.url),
       );
@@ -52,31 +75,41 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
         if (e.data.success) {
           setSubtitles(e.data.subtitles);
         } else {
-          toast.error("Lỗi khi bóc tách phụ đề VTT: " + e.data.error);
+          toast.error(`Loi khi boc tach phu de VTT: ${e.data.error}`);
         }
         worker.terminate();
         setIsLoading(false);
       };
 
       worker.postMessage({ vttText });
-    } catch (error) {
-      toast.error("Lỗi khi kết nối để tải file VTT");
-      setIsLoading(false);
+    } catch {
+      try {
+        await fetchSubtitlesFromDb();
+      } catch {
+        toast.error("Loi khi tai subtitle tu VTT va database");
+        setSubtitles([]);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchSubtitles();
-  }, [video.id, token]);
+    setSubtitleVttUrl(video.subtitle_vtt_url || null);
+  }, [video.id, video.subtitle_vtt_url]);
+
+  useEffect(() => {
+    fetchSubtitles(subtitleVttUrl);
+  }, [video.id, subtitleVttUrl, token]);
 
   const handleUploadSubtitlesSubmit = async () => {
     if (!enSubtitleFile && !viSubtitleFile) {
-      toast.warning("Vui lòng chọn ít nhất 1 file phụ đề (EN hoặc VI)");
+      toast.warning("Vui long chon it nhat 1 file phu de (EN hoac VI)");
       return;
     }
 
     setIsSubmittingSub(true);
-    const toastId = toast.loading("Đang xử lý và đồng bộ phụ đề...");
+    const toastId = toast.loading("Dang xu ly va dong bo phu de...");
 
     const subForm = new FormData();
     if (enSubtitleFile) subForm.append("en_file", enSubtitleFile);
@@ -85,41 +118,76 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
     try {
       const res = await uploadSubtitlesAction(Number(video.id), subForm);
       if (res.success) {
-        toast.success(res.message || "Đã tải phụ đề lên thành công!", {
+        toast.success(res.message || "Da tai phu de len thanh cong!", {
           id: toastId,
         });
+
+        const nextVttUrl = res.data?.subtitle_vtt_url || null;
+        setSubtitleVttUrl(nextVttUrl);
         setEnSubtitleFile(null);
         setViSubtitleFile(null);
-        fetchSubtitles(); // Reload subtitles
+        await fetchSubtitles(nextVttUrl);
         router.refresh();
       } else {
-        toast.error(res.error || "Lỗi upload phụ đề", { id: toastId });
+        toast.error(res.error || "Loi upload phu de", { id: toastId });
       }
-    } catch (err) {
-      toast.error("Đã có lỗi xảy ra", { id: toastId });
+    } catch {
+      toast.error("Da co loi xay ra", { id: toastId });
     } finally {
       setIsSubmittingSub(false);
     }
   };
 
+  const handleAnalyzeDifficulty = async () => {
+    setIsAnalyzingAi(true);
+    const toastId = toast.loading("Dang phan tich do kho phim...");
+
+    try {
+      const res = await analyzeVideoDifficultyAction(Number(video.id));
+      if (res.success) {
+        toast.success(
+          res.message ||
+            "Da bat dau phan tich do kho phim. Vui long doi trong giay lat va refresh lai.",
+          {
+            id: toastId,
+          },
+        );
+        window.setTimeout(() => {
+          router.refresh();
+        }, 1200);
+        window.setTimeout(() => {
+          router.refresh();
+        }, 5000);
+      } else {
+        toast.error(res.error || "Khong the phan tich do kho phim.", {
+          id: toastId,
+        });
+      }
+    } catch {
+      toast.error("Co loi xay ra khi phan tich do kho phim.", { id: toastId });
+    } finally {
+      setIsAnalyzingAi(false);
+    }
+  };
+
   const handleDeleteAllSubtitles = async () => {
-    if (
-      !confirm("Bạn có chắc chắn muốn xóa TOÀN BỘ phụ đề của phim này không?")
-    )
+    if (!confirm("Ban co chac chan muon xoa TOAN BO phu de cua phim nay khong?")) {
       return;
+    }
 
     setIsSubmittingSub(true);
     try {
       const res = await deleteSubtitlesAction(Number(video.id));
       if (res.success) {
-        toast.success("Đã xóa sạch phụ đề!");
+        toast.success("Da xoa sach phu de!");
         setSubtitles([]);
+        setSubtitleVttUrl(null);
         router.refresh();
       } else {
         toast.error(res.error);
       }
-    } catch (err) {
-      toast.error("Lỗi khi xóa phụ đề");
+    } catch {
+      toast.error("Loi khi xoa phu de");
     } finally {
       setIsSubmittingSub(false);
     }
@@ -127,70 +195,74 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
 
   const handleResyncAllSubtitles = async () => {
     setIsSubmittingSub(true);
-    const toastId = toast.loading("Đang đồng bộ hóa file VTT vật lý...");
+    const toastId = toast.loading("Dang dong bo hoa file VTT vat ly...");
+
     try {
       const res = await updateVideoAction(Number(video.id), {});
       if (res.success) {
-        toast.success("Đồng bộ hóa thành công!", { id: toastId });
+        const nextVttUrl = res.data?.data?.subtitle_vtt_url || null;
+        setSubtitleVttUrl(nextVttUrl);
+        toast.success("Dong bo hoa thanh cong!", { id: toastId });
+        await fetchSubtitles(nextVttUrl);
         router.refresh();
       } else {
         toast.error(res.error, { id: toastId });
       }
-    } catch (err) {
-      toast.error("Lỗi đồng bộ", { id: toastId });
+    } catch {
+      toast.error("Loi dong bo", { id: toastId });
     } finally {
       setIsSubmittingSub(false);
     }
   };
 
   return (
-    <div className="max-w-4xl w-full mx-auto">
-      <div className="flex justify-between items-center mb-6 px-2">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Languages className="text-indigo-600" /> Quản lý phụ đề:{" "}
-          <span className="text-indigo-600 truncate max-w-[400px]">
+    <div className="mx-auto w-full max-w-4xl">
+      <div className="mb-6 flex items-center justify-between px-2">
+        <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
+          <Languages className="text-indigo-600" />
+          Quan ly phu de:
+          <span className="max-w-[400px] truncate text-indigo-600">
             {video.title}
           </span>
         </h2>
         <button
           onClick={setClose}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600"
+          className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
         >
           <X size={28} />
         </button>
       </div>
 
-      <div className="max-h-[75vh] overflow-y-auto pr-2 custom-scrollbar">
-        <div className="flex flex-col space-y-6 pb-6 min-h-[500px]">
-          {/* Upload Section */}
-          <div className="bg-gradient-to-r from-indigo-600 to-violet-700 p-8 rounded-3xl text-white shadow-xl flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
+      <div className="custom-scrollbar max-h-[75vh] overflow-y-auto pr-2">
+        <div className="flex min-h-[500px] flex-col space-y-6 pb-6">
+          <div className="flex flex-col gap-6 rounded-3xl bg-gradient-to-r from-indigo-600 to-violet-700 p-8 text-white shadow-xl md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-5">
-              <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl hidden sm:block">
+              <div className="hidden rounded-2xl bg-white/20 p-4 backdrop-blur-md sm:block">
                 <Globe size={32} />
               </div>
               <div>
-                <h3 className="text-xl font-bold">Quản lý Phụ đề Đa ngữ</h3>
-                <p className="text-indigo-100 text-sm mt-1">
-                  Chọn 2 file .srt riêng biệt để đồng bộ với nhau.
+                <h3 className="text-xl font-bold">Quan ly phu de da ngu</h3>
+                <p className="mt-1 text-sm text-indigo-100">
+                  Chon 2 file .srt rieng biet de dong bo voi nhau.
                 </p>
               </div>
             </div>
 
             <div className="flex flex-col gap-3">
               <div className="flex gap-3">
-                {/* Tiếng Anh file input */}
                 <label
-                  className={`px-4 py-2.5 rounded-xl text-sm font-bold shadow-md cursor-pointer transition-all flex flex-col items-center justify-center min-w-[140px] border-2 ${
+                  className={`flex min-w-[140px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 px-4 py-2.5 text-sm font-bold shadow-md transition-all ${
                     enSubtitleFile
-                      ? "bg-indigo-50 border-indigo-300 text-indigo-700"
-                      : "bg-white/10 hover:bg-white/20 border-white/20 text-white"
+                      ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                      : "border-white/20 bg-white/10 text-white hover:bg-white/20"
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <Plus size={16} /> <span>Tải EN (.srt)</span>
+                    <Plus size={16} />
+                    <span>Tai EN (.srt)</span>
                   </div>
                   {enSubtitleFile && (
-                    <span className="text-[10px] font-normal mt-1 opacity-80 truncate w-[120px] text-center">
+                    <span className="mt-1 w-[120px] truncate text-center text-[10px] font-normal opacity-80">
                       {enSubtitleFile.name}
                     </span>
                   )}
@@ -205,19 +277,19 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
                   />
                 </label>
 
-                {/* Tiếng Việt file input */}
                 <label
-                  className={`px-4 py-2.5 rounded-xl text-sm font-bold shadow-md cursor-pointer transition-all flex flex-col items-center justify-center min-w-[140px] border-2 ${
+                  className={`flex min-w-[140px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 px-4 py-2.5 text-sm font-bold shadow-md transition-all ${
                     viSubtitleFile
-                      ? "bg-indigo-50 border-indigo-300 text-indigo-700"
-                      : "bg-white/10 hover:bg-white/20 border-white/20 text-white"
+                      ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                      : "border-white/20 bg-white/10 text-white hover:bg-white/20"
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <Plus size={16} /> <span>Tải VI (.srt)</span>
+                    <Plus size={16} />
+                    <span>Tai VI (.srt)</span>
                   </div>
                   {viSubtitleFile && (
-                    <span className="text-[10px] font-normal mt-1 opacity-80 truncate w-[120px] text-center">
+                    <span className="mt-1 w-[120px] truncate text-center text-[10px] font-normal opacity-80">
                       {viSubtitleFile.name}
                     </span>
                   )}
@@ -233,93 +305,139 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
                 </label>
               </div>
 
-              {/* Submit button */}
               <button
                 type="button"
                 onClick={handleUploadSubtitlesSubmit}
-                disabled={
-                  isSubmittingSub || (!enSubtitleFile && !viSubtitleFile)
-                }
-                className="bg-white text-indigo-700 hover:bg-indigo-50 px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 w-full"
+                disabled={isSubmittingSub || (!enSubtitleFile && !viSubtitleFile)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-2.5 text-sm font-bold text-indigo-700 shadow-lg transition-all hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmittingSub ? (
                   <Spanning />
                 ) : (
                   <>
-                    <Check size={18} /> Lưu / Thêm Phụ Đề
+                    <Check size={18} />
+                    Luu / Them Phu De
                   </>
                 )}
               </button>
+
+              <button
+                type="button"
+                onClick={handleAnalyzeDifficulty}
+                disabled={isSubmittingSub || isAnalyzingAi || subtitles.length === 0}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isAnalyzingAi ? (
+                  <Spanning />
+                ) : (
+                  <>
+                    <Sparkles size={18} />
+                    Phan tich do kho phim
+                  </>
+                )}
+              </button>
+
+              <div className="rounded-2xl border border-white/20 bg-white/10 p-4 text-sm shadow-lg backdrop-blur-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-100/90">
+                  AI Movie Analysis
+                </p>
+
+                {video.ai_analysis ? (
+                  video.ai_analysis.status === "FAILED" ? (
+                    <div className="mt-2 space-y-2">
+                      <span className="inline-flex items-center rounded-full border border-rose-200/40 bg-rose-500/20 px-2.5 py-1 text-xs font-semibold text-rose-50">
+                        AI that bai
+                      </span>
+                      {video.ai_analysis.error_message && (
+                        <p
+                          className="text-xs leading-5 text-rose-100/90"
+                          title={video.ai_analysis.error_message}
+                        >
+                          {video.ai_analysis.error_message}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-2 space-y-2">
+                      <MovieDifficultyBadge analysis={video.ai_analysis} />
+                      <p className="text-xs leading-5 text-indigo-100">
+                        {video.ai_analysis.segment_count} subtitle da duoc phan tich.
+                      </p>
+                    </div>
+                  )
+                ) : (
+                  <p className="mt-2 text-xs leading-5 text-indigo-100">
+                    Chua co ket qua AI. Bam nut phan tich de luu do kho phim vao he thong.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex-1 border border-gray-100 rounded-3xl bg-white shadow-sm flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gray-50/50 rounded-t-3xl">
-              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                Preview Danh sách ({subtitles.length} dòng)
+          <div className="flex flex-1 flex-col rounded-3xl border border-gray-100 bg-white shadow-sm">
+            <div className="flex items-center justify-between rounded-t-3xl border-b border-gray-100 bg-gray-50/50 p-5">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                Preview danh sach ({subtitles.length} dong)
               </span>
               <div className="flex items-center gap-6">
                 <button
                   onClick={handleDeleteAllSubtitles}
                   disabled={isSubmittingSub || subtitles.length === 0}
-                  className="text-xs text-rose-500 font-bold hover:underline disabled:text-gray-300"
+                  className="text-xs font-bold text-rose-500 hover:underline disabled:text-gray-300"
                 >
-                  Xóa sạch phụ đề
+                  Xoa sach phu de
                 </button>
                 <button
                   onClick={handleResyncAllSubtitles}
                   disabled={isSubmittingSub || subtitles.length === 0}
-                  className="text-xs text-indigo-600 font-bold hover:underline disabled:text-gray-300"
+                  className="text-xs font-bold text-indigo-600 hover:underline disabled:text-gray-300"
                 >
-                  Đồng bộ (Re-sync)
+                  Dong bo (Re-sync)
                 </button>
               </div>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="space-y-4 p-5">
               {isLoading ? (
-                // Skeleton Loader
                 Array.from({ length: 5 }).map((_, idx) => (
                   <div
                     key={idx}
-                    className="p-5 border border-gray-100 rounded-2xl flex items-start gap-5"
+                    className="flex items-start gap-5 rounded-2xl border border-gray-100 p-5"
                   >
                     <Skeleton width={80} height={24} borderRadius={8} />
-                    <div className="flex-1 grid grid-cols-2 gap-6">
+                    <div className="grid flex-1 grid-cols-2 gap-6">
                       <Skeleton count={2} height={20} />
                       <Skeleton count={2} height={20} />
                     </div>
                   </div>
                 ))
               ) : subtitles.length > 0 ? (
-                // Subtitles List
                 subtitles.map((sub, idx) => (
                   <div
                     key={idx}
-                    className="group p-5 border border-transparent hover:border-indigo-100 hover:bg-indigo-50/30 rounded-2xl transition-all flex items-start gap-5"
+                    className="group flex items-start gap-5 rounded-2xl border border-transparent p-5 transition-all hover:border-indigo-100 hover:bg-indigo-50/30"
                   >
-                    <div className="bg-gray-100 text-gray-500 text-[10px] py-1.5 px-2 rounded-lg font-mono w-24 flex-shrink-0 text-center shadow-sm">
+                    <div className="w-24 flex-shrink-0 rounded-lg bg-gray-100 px-2 py-1.5 text-center font-mono text-[10px] text-gray-500 shadow-sm">
                       {Number(sub.start_time).toFixed(2)}s
                     </div>
-                    <div className="flex-1 grid grid-cols-2 gap-6">
-                      <div className="text-sm text-gray-600 leading-relaxed font-medium">
+                    <div className="grid flex-1 grid-cols-2 gap-6">
+                      <div className="text-sm font-medium leading-relaxed text-gray-600">
                         {sub.content_en}
                       </div>
-                      <div className="text-sm text-indigo-900 font-bold leading-relaxed border-l-2 border-indigo-100 pl-4">
-                        {sub.content_vi || "Chưa có bản dịch..."}
+                      <div className="border-l-2 border-indigo-100 pl-4 text-sm font-bold leading-relaxed text-indigo-900">
+                        {sub.content_vi || "Chua co ban dich..."}
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
-                // Empty State
                 <div className="flex flex-col items-center justify-center py-20 text-gray-300">
                   <Languages size={64} strokeWidth={1} />
                   <p className="mt-4 font-bold text-gray-400">
-                    Chưa có dữ liệu phụ đề
+                    Chua co du lieu phu de
                   </p>
-                  <p className="text-xs mt-1">
-                    Hãy bắt đầu bằng cách tải lên file .srt của bạn
+                  <p className="mt-1 text-xs">
+                    Hay bat dau bang cach tai len file .srt cua ban
                   </p>
                 </div>
               )}

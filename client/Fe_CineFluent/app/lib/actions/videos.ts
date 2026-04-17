@@ -2,6 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import {
+  Api_analyze_video_ai,
   Api_delete_video,
   Api_update_video,
   Api_get_videos,
@@ -166,11 +167,54 @@ export async function uploadSubtitlesAction(
     const res = await Api_upload_subtitles(id, formData, token);
     revalidateTag("videos", "default");
     revalidatePath("/admin");
-    return { success: true, message: res.data.message };
+    return {
+      success: true,
+      message: res.data.message,
+      data: res.data.data ?? null,
+    };
   } catch (error: any) {
     return {
       success: false,
       error: error.response?.data?.message || error.message,
+    };
+  }
+}
+
+export async function analyzeVideoDifficultyAction(videoId: number) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
+    if (!token || !videoId) {
+      return { success: false, error: "Thieu thong tin can thiet" };
+    }
+
+    const response = await Api_analyze_video_ai(videoId, token);
+    const payload = response.data;
+    if (payload?.code >= 400) {
+      return {
+        success: false,
+        error:
+          payload?.message ||
+          "Khong the phan tich do kho phim",
+      };
+    }
+
+    revalidateTag("videos", "default");
+    revalidatePath("/admin");
+
+    return {
+      success: true,
+      data: payload?.data ?? null,
+      message: payload?.message || "Da phan tich do kho phim thanh cong",
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error:
+        error.response?.data?.message ||
+        error.message ||
+        "Khong the phan tich do kho phim",
     };
   }
 }

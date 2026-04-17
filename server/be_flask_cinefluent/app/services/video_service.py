@@ -9,6 +9,7 @@ import yt_dlp
 from datetime import timedelta
 from slugify import slugify
 from deep_translator import GoogleTranslator
+from sqlalchemy.orm import selectinload
 
 # Global Translator instance
 translator = GoogleTranslator(source='en', target='vi')
@@ -31,10 +32,11 @@ def translate_with_retry(text, max_retries=3):
                 raise
     return text
 
-from ..models.models_model import Video, Subtitle, Category
+from ..models.models_model import Video, Subtitle, Category, MovieAIAnalysis
 from ..extensions import db, socketio
 from ..schemas.video_schema import VideoSchema
 from ..utils.subtitle_utils import parse_vtt
+from ..utils.storage_paths import get_subtitle_storage_dir
 from .tmdb_service import search_movie_by_tmdb
 from .learning_service import suggest_multiple_categories
 from ..schemas.video_schema import (
@@ -478,19 +480,31 @@ def import_video_local(user_id, data: ImportLocalManualRequest):
 
     return video
 
-def save_subtitles_from_content(video_id, en_content, vi_content=None):
+def save_subtitles_from_content(video_id, en_content, vi_content=None, export_vtt=True):
     """
     Parse và lưu phụ đề từ nội dung text (SRT hoặc VTT) vào database.
     Tự động nhận diện định dạng dựa trên nội dung.
     """
     from ..utils.subtitle_utils import parse_vtt, parse_srt
+    from flask import current_app
     
     video = Video.query.get(video_id)
     if not video:
         raise ValueError(f"Video ID {video_id} không tồn tại")
 
+    current_app.logger.info(
+        "[SAVE_SUBTITLE_CONTENT_START] video_id=%s has_en=%s has_vi=%s export_vtt=%s",
+        video_id,
+        bool(en_content),
+        bool(vi_content),
+        export_vtt,
+    )
+
     # Xóa sub cũ
     Subtitle.query.filter_by(video_id=video_id).delete()
+    MovieAIAnalysis.query.filter_by(video_id=video_id).delete()
+    if not export_vtt:
+        video.subtitle_vtt_url = None
 
     # Nhận diện định dạng cho file Anh
     if en_content:
@@ -504,6 +518,13 @@ def save_subtitles_from_content(video_id, en_content, vi_content=None):
     if vi_content:
         parser_vi = parse_vtt if 'WEBVTT' in vi_content.upper() else parse_srt
         vi_subs = parser_vi(vi_content)
+
+    current_app.logger.info(
+        "[SAVE_SUBTITLE_CONTENT_PARSED] video_id=%s en_count=%s vi_count=%s",
+        video_id,
+        len(en_subs),
+        len(vi_subs),
+    )
 
     # Sắp xếp để đảm bảo logic so sánh thời gian chính xác
     en_subs.sort(key=lambda x: x['start_time'])
@@ -562,15 +583,26 @@ def save_subtitles_from_content(video_id, en_content, vi_content=None):
         count += 1
 
     db.session.commit()
+
+    current_app.logger.info(
+        "[SAVE_SUBTITLE_CONTENT_COMMIT] video_id=%s saved_count=%s export_vtt=%s",
+        video_id,
+        count,
+        export_vtt,
+    )
     
-    # Xuất ra file VTT tổng hợp cho Frontend
-    export_subtitle_to_vtt(video_id)
+    # Xuat ra file VTT tong hop cho player neu duoc yeu cau.
+    if export_vtt:
+        export_subtitle_to_vtt(video_id)
     
     return count
 
 
 def get_all_videos(page, per_page, category_id=None, release_year=None, source_type=None, status='public', keyword=None):
-    query = Video.query
+    query = Video.query.options(
+        selectinload(Video.categories),
+        selectinload(Video.ai_analysis),
+    )
     
     if status and status != 'all':
         query = query.filter_by(status=status)
@@ -615,6 +647,11 @@ def update_video(video_id, data: UpdateVideoRequest):
     # Chuyển Model thành dict, loại bỏ các giá trị None (Chỉ update những gì được gửi)
     update_data = data.model_dump(exclude_unset=True)
 
+    if not update_data:
+        if video.subtitles.count() > 0:
+            export_subtitle_to_vtt(video_id)
+        return Video.query.get(video_id)
+
     if 'title' in update_data:
         video.title = update_data['title']
         video.slug = create_unique_slug(Video, update_data['title'])
@@ -642,11 +679,12 @@ def delete_all_subtitles(video_id):
         raise ValueError(f"Video ID {video_id} không tồn tại")
     
     Subtitle.query.filter_by(video_id=video_id).delete()
+    MovieAIAnalysis.query.filter_by(video_id=video_id).delete()
     video.subtitle_vtt_url = None
     db.session.commit()
     
     # Xóa file vật lý nếu có
-    storage_dir = os.path.abspath(os.path.join(os.getcwd(), 'storage', 'subtitles'))
+    storage_dir = get_subtitle_storage_dir()
     file_path = os.path.join(storage_dir, f"video_{video_id}.vtt")
     if os.path.exists(file_path):
         os.remove(file_path)
@@ -664,8 +702,7 @@ def export_subtitle_to_vtt(video_id):
         raise ValueError(f"Video ID {video_id} không tồn tại")
 
     # 1. Tạo thư mục lưu trữ nếu chưa có
-    storage_dir = os.path.abspath(os.path.join(os.getcwd(), 'storage', 'subtitles'))
-    os.makedirs(storage_dir, exist_ok=True)
+    storage_dir = get_subtitle_storage_dir()
     
     file_name = f"video_{video_id}.vtt"
     file_path = os.path.join(storage_dir, file_name)

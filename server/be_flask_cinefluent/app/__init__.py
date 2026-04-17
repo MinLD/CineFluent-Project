@@ -1,5 +1,7 @@
 # app/__init__.py
 
+import os
+
 from flask import Flask , jsonify
 
 from .extensions import db, migrate, jwt, cors, socketio
@@ -65,6 +67,15 @@ def create_app(config_name='default'):
     from .controller.roadmap_controller import roadmap_bp
     app.register_blueprint(roadmap_bp, url_prefix='/api/roadmap')
 
+    from .controller.ai_controller import ai_bp
+    app.register_blueprint(ai_bp, url_prefix='/api/ai')
+
+    from .controller.admin_dashboard_controller import admin_dashboard_bp
+    app.register_blueprint(admin_dashboard_bp, url_prefix='/api/admin-dashboard')
+
+    from .controller.chat_controller import chat_bp
+    app.register_blueprint(chat_bp, url_prefix='/api/chat')
+
     # Import socket controllers
     from .controller import typing_socket_controller
 
@@ -129,11 +140,10 @@ def create_app(config_name='default'):
     # [VTT_OPTIMIZATION] Cấu hình serving file tĩnh cho phụ đề .vtt
     @app.route('/api/static/subs/<path:filename>')
     def serve_subtitles(filename):
-        import os
         from flask import send_from_directory, current_app
-        # Sử dụng đường dẫn tương đối từ project root để đảm bảo an toàn
-        project_root = os.path.abspath(os.path.join(current_app.root_path, '..'))
-        subs_dir = os.path.join(project_root, 'storage', 'subtitles')
+        from .utils.storage_paths import get_subtitle_storage_dir
+
+        subs_dir = get_subtitle_storage_dir()
         
         # Log để debug nếu có lỗi 500
         print(f"📂 [VTT_SERVE] Request: {filename} from {subs_dir}")

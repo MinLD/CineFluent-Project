@@ -1,3 +1,4 @@
+import { MovieAIAnalysisCard } from "@/app/components/movies/MovieAIAnalysisCard";
 import { VideoPlayerWrapper } from "@/app/components/movies/VideoPlayerWrapper";
 import { SSR_Video_Slug } from "@/app/lib/data/video";
 
@@ -15,11 +16,13 @@ export default async function VideoDetailPage({
   if (!video) {
     return notFound();
   }
-
   return (
     <>
       <div className="bg-slate-900">
         <VideoPlayerWrapper video={video} />
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          <MovieAIAnalysisCard analysis={video.ai_analysis ?? null} />
+        </div>
       </div>
     </>
   );

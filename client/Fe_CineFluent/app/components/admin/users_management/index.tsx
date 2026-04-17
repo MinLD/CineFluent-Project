@@ -159,10 +159,7 @@ function Users_Management({ data_users }: Props) {
         </button>
         {AddUser && (
           <Modal_Show setClose={() => setAddUser(false)}>
-            <AdminCreateUser
-              setClose={() => setAddUser(false)}
-              token={token || ""}
-            />
+            <AdminCreateUser setClose={() => setAddUser(false)} />
           </Modal_Show>
         )}
       </div>

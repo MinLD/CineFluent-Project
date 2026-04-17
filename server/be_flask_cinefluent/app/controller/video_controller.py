@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+﻿from flask import Blueprint, request, current_app
 from ..utils.response import success_response, error_response
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..services.video_service import (
@@ -9,12 +9,13 @@ from ..services.video_service import (
     import_video_local
 )
 from ..services.upload_service import upload_file
-from ..schemas.video_schema import VideoSchema, VideoDetailSchema, SubtitleSchema, ImportYoutubeRequest, ImportLocalRequest, ImportLocalManualRequest, UpdateVideoRequest
+from ..schemas.video_schema import VideoSchema, VideoDetailSchema, SubtitleSchema, MovieAIAnalysisSchema, ImportYoutubeRequest, ImportLocalRequest, ImportLocalManualRequest, UpdateVideoRequest
 from ..models.models_model import Video, Subtitle
 from ..extensions import db
 from google.auth.transport.requests import Request
 import requests
 import os
+import threading
 video_bp = Blueprint('api/videos', __name__)
 
 
@@ -270,6 +271,14 @@ def get_subtitles(video_id, ordered_subs=None):
     if not video:
         return error_response("Video not found", 404)
 
+    if ordered_subs is None:
+        ordered_subs = (
+            Subtitle.query
+            .filter_by(video_id=video_id)
+            .order_by(Subtitle.start_time.asc())
+            .all()
+        )
+
     return success_response(data=SubtitleSchema(many=True).dump(ordered_subs))
 
 from flask import Response, stream_with_context
@@ -408,11 +417,19 @@ def upload_subtitles(video_id):
     en_file = request.files.get('en_file')
     vi_file = request.files.get('vi_file')
 
+    current_app.logger.info(
+        "[SUBTITLE_UPLOAD_START] video_id=%s en_file=%s vi_file=%s",
+        video_id,
+        getattr(en_file, "filename", None),
+        getattr(vi_file, "filename", None),
+    )
+
     if not en_file and not vi_file:
-        return error_response("Bạn cần upload ít nhất một file phụ đề (en_file hoặc vi_file)", 400)
+        return error_response("Ban can upload it nhat mot file phu de (en_file hoac vi_file)", 400)
     
     def safe_decode(file_obj) -> str:
-        if not file_obj: return ""
+        if not file_obj:
+            return ""
         raw_bytes = file_obj.read()
         
         # Danh sách các bảng mã ưu tiên (Đặc biệt thêm cp1258 cho sub Việt cũ)
@@ -434,12 +451,134 @@ def upload_subtitles(video_id):
         
         # Gọi hàm xử lý hợp nhất (Tự động nhận diện định dạng bên trong service)
         count = save_subtitles_from_content(video_id, en_content, vi_content)
+        video = Video.query.get(video_id)
         return success_response(
-            data={"count": count}, 
-            message=f"Đã xử lý và lưu thành công {count} dòng phụ đề. (Hệ thống đã tự động nhận diện từ file bạn gửi)"
+            data={
+                "count": count,
+                "subtitle_vtt_url": video.subtitle_vtt_url if video else None,
+            },
+            message=f"Da xu ly va luu thanh cong {count} dong phu de.",
         )
     except Exception as e:
-        return error_response(f"Lỗi khi xử lý phụ đề: {str(e)}", 500)
+        return error_response(f"Loi khi xu ly phu de: {str(e)}", 500)
+
+
+@video_bp.route('/<int:video_id>/ai-analysis', methods=['POST'])
+@jwt_required()
+def analyze_video_ai(video_id):
+    try:
+        current_app.logger.info("[VIDEO_AI_ANALYSIS_START] video_id=%s", video_id)
+
+        video = Video.query.get(video_id)
+        if not video:
+            return error_response("Video not found", 404)
+
+        ordered_subtitles = (
+            Subtitle.query
+            .filter_by(video_id=video_id)
+            .order_by(Subtitle.start_time.asc())
+            .all()
+        )
+
+        if not ordered_subtitles:
+            return error_response(
+                "Video nay chua co subtitle de phan tich. Hay upload subtitle truoc.",
+                400,
+            )
+
+        app_obj = current_app._get_current_object()
+
+        def _run_ai_analysis_async(target_video_id: int):
+            from ..services.movie_ai_service import (
+                save_video_ai_analysis_failure_service,
+                save_video_ai_analysis_service,
+            )
+
+            with app_obj.app_context():
+                target_video = Video.query.get(target_video_id)
+                if not target_video:
+                    current_app.logger.warning(
+                        "[VIDEO_AI_ANALYSIS_ASYNC_MISSING_VIDEO] video_id=%s",
+                        target_video_id,
+                    )
+                    return
+
+                target_subtitles = (
+                    Subtitle.query
+                    .filter_by(video_id=target_video_id)
+                    .order_by(Subtitle.start_time.asc())
+                    .all()
+                )
+
+                if not target_subtitles:
+                    current_app.logger.warning(
+                        "[VIDEO_AI_ANALYSIS_ASYNC_NO_SUBTITLES] video_id=%s",
+                        target_video_id,
+                    )
+                    return
+
+                try:
+                    save_video_ai_analysis_service(target_video, target_subtitles)
+                    current_app.logger.info(
+                        "[VIDEO_AI_ANALYSIS_ASYNC_DONE] video_id=%s",
+                        target_video_id,
+                    )
+                except Exception as ex:
+                    db.session.rollback()
+                    error_detail = str(ex).strip()
+                    error_message = (
+                        f"{type(ex).__name__}: {error_detail}"
+                        if error_detail
+                        else type(ex).__name__
+                    )
+                    current_app.logger.exception(
+                        "[VIDEO_AI_ANALYSIS_ASYNC_ERROR] video_id=%s",
+                        target_video_id,
+                    )
+                    try:
+                        save_video_ai_analysis_failure_service(target_video, error_message)
+                    except Exception:
+                        db.session.rollback()
+                        current_app.logger.exception(
+                            "[VIDEO_AI_ANALYSIS_ASYNC_FAILURE_SAVE_ERROR] video_id=%s",
+                            target_video_id,
+                        )
+
+        threading.Thread(
+            target=_run_ai_analysis_async,
+            args=(video_id,),
+            daemon=True,
+        ).start()
+
+        return success_response(
+            data={"video_id": video_id},
+            message="Da bat dau phan tich do kho phim. Vui long doi trong giay lat va refresh lai.",
+            code=202,
+        )
+    except Exception as ex:
+        db.session.rollback()
+        error_detail = str(ex).strip()
+        error_message = (
+            f"{type(ex).__name__}: {error_detail}"
+            if error_detail
+            else type(ex).__name__
+        )
+        current_app.logger.exception("[VIDEO_AI_ANALYSIS_ERROR] video_id=%s", video_id)
+
+        try:
+            save_video_ai_analysis_failure_service(video, error_message)
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception(
+                "[VIDEO_AI_ANALYSIS_FAILURE_SAVE_ERROR] video_id=%s",
+                video_id,
+            )
+
+        return error_response(
+            error_message if current_app.debug else "Khong the phan tich AI cho video nay",
+            500,
+            error_code="AI_ANALYSIS_FAILED",
+        )
 
 
 @video_bp.route('/<int:video_id>/subtitles', methods=['DELETE'])

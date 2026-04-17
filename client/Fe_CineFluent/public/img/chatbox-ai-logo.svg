@@ -1,0 +1,55 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bgGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(128 108) rotate(90) scale(126)">
+      <stop stop-color="#7DEBFF"/>
+      <stop offset="0.42" stop-color="#4E82FF"/>
+      <stop offset="1" stop-color="#111B3B"/>
+    </radialGradient>
+    <linearGradient id="botBody" x1="75" y1="72" x2="183" y2="187" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EFF9FF"/>
+      <stop offset="1" stop-color="#D7E7FF"/>
+    </linearGradient>
+    <linearGradient id="visor" x1="92" y1="106" x2="164" y2="106" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1CD7FF"/>
+      <stop offset="1" stop-color="#4563FF"/>
+    </linearGradient>
+    <linearGradient id="antenna" x1="124" y1="47" x2="141" y2="72" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9BF5FF"/>
+      <stop offset="1" stop-color="#4674FF"/>
+    </linearGradient>
+    <filter id="shadow" x="10" y="12" width="236" height="232" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="14"/>
+      <feGaussianBlur stdDeviation="16"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0862745 0 0 0 0 0.14902 0 0 0 0 0.34902 0 0 0 0.34 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <circle cx="128" cy="108" r="98" fill="url(#bgGlow)"/>
+    <circle cx="190" cy="58" r="11" fill="#E9F7FF" fill-opacity="0.95"/>
+    <circle cx="66" cy="68" r="7" fill="#A0E9FF" fill-opacity="0.72"/>
+    <circle cx="207" cy="162" r="6" fill="#CBE4FF" fill-opacity="0.7"/>
+
+    <path d="M129 50C129 46.6863 131.686 44 135 44C138.314 44 141 46.6863 141 50V65H129V50Z" fill="url(#antenna)"/>
+    <circle cx="135" cy="38" r="12" fill="#9CF4FF"/>
+    <circle cx="135" cy="38" r="6.5" fill="#FFFFFF" fill-opacity="0.92"/>
+
+    <path d="M71 99C71 82.4315 84.4315 69 101 69H155C171.569 69 185 82.4315 185 99V143C185 159.569 171.569 173 155 173H132.5L112.062 191.535C108.875 194.425 103.75 192.164 103.75 187.861V173H101C84.4315 173 71 159.569 71 143V99Z" fill="url(#botBody)"/>
+    <path d="M71 99C71 82.4315 84.4315 69 101 69H155C171.569 69 185 82.4315 185 99V143C185 159.569 171.569 173 155 173H132.5L112.062 191.535C108.875 194.425 103.75 192.164 103.75 187.861V173H101C84.4315 173 71 159.569 71 143V99Z" stroke="rgba(255,255,255,0.55)" stroke-width="2"/>
+
+    <rect x="90" y="93" width="76" height="28" rx="14" fill="url(#visor)"/>
+    <circle cx="112" cy="107" r="6" fill="#ECFFFF"/>
+    <circle cx="144" cy="107" r="6" fill="#ECFFFF"/>
+    <path d="M108 135C114.059 141.177 121.412 144 128 144C134.588 144 141.941 141.177 148 135" stroke="#3D5FFF" stroke-width="6" stroke-linecap="round"/>
+
+    <path d="M84 95C84 90.5817 87.5817 87 92 87H97V101H92C87.5817 101 84 97.4183 84 93V95Z" fill="#DDEEFF"/>
+    <path d="M159 87H164C168.418 87 172 90.5817 172 95V93C172 97.4183 168.418 101 164 101H159V87Z" fill="#DDEEFF"/>
+
+    <rect x="96" y="173" width="19" height="10" rx="5" fill="#DBEAFF"/>
+    <rect x="142" y="173" width="19" height="10" rx="5" fill="#DBEAFF"/>
+  </g>
+</svg>

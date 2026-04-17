@@ -96,6 +96,18 @@ class SubtitleSchema(Schema):
     content_en = fields.Str()
     content_vi = fields.Str()
 
+class MovieAIAnalysisSchema(Schema):
+    movie_score = fields.Float()
+    movie_level = fields.Str()
+    movie_cefr_range = fields.Str()
+    segment_count = fields.Int()
+    difficulty_ratios = fields.Dict(keys=fields.Str(), values=fields.Float())
+    cefr_ratios = fields.Dict(keys=fields.Str(), values=fields.Float())
+    dominant_grammar_tags = fields.List(fields.Str())
+    top_hard_segments = fields.List(fields.Dict())
+    status = fields.Str()
+    error_message = fields.Str(allow_none=True)
+
 class VideoSchema(Schema):
     id = fields.Int()
     tmdb_id = fields.Int()
@@ -117,7 +129,8 @@ class VideoSchema(Schema):
     status = fields.Str()
     view_count = fields.Int()
     categories = fields.List(fields.Nested(CategorySchema))
+    ai_analysis = fields.Nested(MovieAIAnalysisSchema, allow_none=True)
     # subtitles = fields.List(fields.Nested(SubtitleSchema))
 
 class VideoDetailSchema(VideoSchema):
-    pass
+    ai_analysis = fields.Nested(MovieAIAnalysisSchema, allow_none=True)

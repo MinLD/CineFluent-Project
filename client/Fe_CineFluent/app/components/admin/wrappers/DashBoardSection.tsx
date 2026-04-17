@@ -1,13 +1,13 @@
 import DashboardPage from "@/app/components/admin/dash_board_page";
+import { SSR_Admin_Dashboard } from "@/app/lib/data/admin_dashboard";
 import { SSR_Users_Stats } from "@/app/lib/data/users";
 
 const DashBoardSection = async () => {
-  const { summary, chart_data } = await SSR_Users_Stats();
-  console.log("res dash board section:", { summary, chart_data });
-  const userStats = { summary, chart_data };
+const initialData = await SSR_Admin_Dashboard(7,5 );
+
   return (
     <>
-      <DashboardPage userStats={userStats} />
+      <DashboardPage initialData={initialData} />
     </>
   );
 };

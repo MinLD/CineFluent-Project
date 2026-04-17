@@ -8,7 +8,7 @@ export async function SSR_Video_Slug(slug: string) {
 
     const response = await fetch(`${BeUrl}/videos/${slug}`, {
       headers: { Authorization: `Bearer ${token}` },
-      next: { tags: ["videos", `video-${slug}`] },
+      cache: "no-store",
     });
     const data = await response.json();
     return data.data;
@@ -29,7 +29,7 @@ export async function SSR_Video_All(
 
     const filter = params.toString() ? `?${params.toString()}` : "";
     const response = await fetch(`${BeUrl}/videos${filter}`, {
-      next: { tags: ["videos"] },
+      cache: "no-store",
     });
     const data = await response.json();
     return {

@@ -40,6 +40,8 @@ class User(db.Model):
     watch_history = db.relationship('WatchHistory', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     study_roadmaps = db.relationship('StudyRoadmap', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     ai_assessments = db.relationship('AIAssessment', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
+    chat_sessions = db.relationship('ChatSession', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
+    chat_messages = db.relationship('ChatMessage', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     def set_password(self, password):
         self.password = generate_password_hash(password)
 
@@ -117,6 +119,7 @@ class Video(db.Model):
     reports = db.relationship('VideoReport', back_populates='video', lazy='dynamic', cascade='all, delete-orphan')
     flashcards = db.relationship('Flashcard', back_populates='video', lazy='dynamic', cascade='all, delete-orphan')
     watch_history = db.relationship('WatchHistory', back_populates='video', lazy='dynamic', cascade='all, delete-orphan')
+    ai_analysis = db.relationship('MovieAIAnalysis', back_populates='video', uselist=False, cascade='all, delete-orphan')
 
 class Subtitle(db.Model):
     __tablename__ = 'subtitles'
@@ -262,6 +265,34 @@ class WatchHistory(db.Model):
     user = db.relationship('User', back_populates='watch_history')
     video = db.relationship('Video', back_populates='watch_history')
 
+class MovieAIAnalysis(db.Model):
+    __tablename__ = 'movie_ai_analyses'
+
+    id = db.Column(db.Integer, primary_key=True)
+    video_id = db.Column(db.Integer, db.ForeignKey('videos.id', ondelete='CASCADE'), nullable=False, unique=True, index=True)
+
+    model_name = db.Column(db.String(100), nullable=False, default='FacebookAI/xlm-roberta-base')
+    model_mode = db.Column(db.String(50), nullable=False, default='multitask_inference')
+    segment_count = db.Column(db.Integer, nullable=False, default=0)
+
+    movie_score = db.Column(db.Float, nullable=False)
+    movie_level = db.Column(db.String(50), nullable=False)
+    movie_cefr_range = db.Column(db.String(20), nullable=False)
+
+    difficulty_ratios = db.Column(db.JSON, nullable=False)
+    cefr_ratios = db.Column(db.JSON, nullable=False)
+    dominant_grammar_tags = db.Column(db.JSON, nullable=True)
+    top_hard_segments = db.Column(db.JSON, nullable=True)
+
+    status = db.Column(db.Enum('READY', 'FAILED'), default='READY', nullable=False, index=True)
+    error_message = db.Column(db.Text, nullable=True)
+
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    video = db.relationship('Video', back_populates='ai_analysis')
+
+
 class StudyRoadmap(db.Model):
     __tablename__ = 'study_roadmaps'
     id = db.Column(db.Integer, primary_key=True)
@@ -314,3 +345,89 @@ class AIAssessment(db.Model):
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     user = db.relationship('User', back_populates='ai_assessments')
+
+
+class ChatSession(db.Model):
+    __tablename__ = 'chat_sessions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.String(36),
+        db.ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    title = db.Column(db.String(255), nullable=True)
+    context_type = db.Column(
+        db.Enum('general', 'movie', 'flashcard', 'roadmap', 'typing_game', 'realtime_practice'),
+        nullable=False,
+        default='general',
+        index=True,
+    )
+    context_id = db.Column(db.String(100), nullable=True, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', back_populates='chat_sessions')
+    messages = db.relationship(
+        'ChatMessage',
+        back_populates='session',
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+    )
+
+
+class ChatMessage(db.Model):
+    __tablename__ = 'chat_messages'
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(
+        db.Integer,
+        db.ForeignKey('chat_sessions.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    user_id = db.Column(
+        db.String(36),
+        db.ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    role = db.Column(
+        db.Enum('system', 'user', 'assistant'),
+        nullable=False,
+        index=True,
+    )
+    content = db.Column(db.Text, nullable=False)
+    context_used = db.Column(db.JSON, nullable=True)
+    sources = db.Column(db.JSON, nullable=True)
+    usage = db.Column(db.JSON, nullable=True)
+    latency_ms = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    session = db.relationship('ChatSession', back_populates='messages')
+    user = db.relationship('User', back_populates='chat_messages')
+    feedback = db.relationship(
+        'ChatFeedback',
+        back_populates='message',
+        uselist=False,
+        cascade='all, delete-orphan',
+    )
+
+
+class ChatFeedback(db.Model):
+    __tablename__ = 'chat_feedback'
+
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(
+        db.Integer,
+        db.ForeignKey('chat_messages.id', ondelete='CASCADE'),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    is_helpful = db.Column(db.Boolean, nullable=False)
+    note = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    message = db.relationship('ChatMessage', back_populates='feedback')

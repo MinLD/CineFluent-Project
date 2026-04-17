@@ -8,6 +8,41 @@ export interface I_Subtitle {
   content_vi: string | null;
 }
 
+export interface I_Video_AI_Segment {
+  scene_id: string;
+  subtitle_text_clean: string;
+  duration: number;
+  start_time: number;
+  end_time: number;
+  pred_score: number;
+  pred_label: "easy" | "medium" | "hard" | string;
+  pred_cefr: "A2" | "B1" | "B2" | string;
+  pred_grammar_tag: string;
+  difficulty_confidence: number;
+  grammar_confidence: number;
+}
+
+export interface I_Video_AI_Analysis {
+  video_id?: number;
+  video_title?: string;
+  segment_count: number;
+  movie_score: number;
+  movie_level: "Beginner" | "Intermediate" | "Advanced" | string;
+  movie_cefr_range: string;
+  difficulty_ratios: Record<string, number>;
+  cefr_ratios: Record<string, number>;
+  dominant_grammar_tags: string[];
+  top_hard_segments: I_Video_AI_Segment[];
+  status?: "READY" | "FAILED" | string;
+  error_message?: string | null;
+  predicted_segments?: I_Video_AI_Segment[];
+  model_meta?: {
+    model_name?: string;
+    model_dir?: string;
+    mode?: string;
+  };
+}
+
 export interface I_Video {
   id: number;
   slug: string;
@@ -41,6 +76,7 @@ export interface I_Video {
     duration?: number;
     updated_at?: string;
   };
+  ai_analysis?: I_Video_AI_Analysis | null;
   created_at: string;
   updated_at: string;
 }

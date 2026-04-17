@@ -15,6 +15,7 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { ConfigProvider, theme } from "antd";
 import { QueryProvider } from "@/app/providers/QueryProvider";
 import { SocketProvider } from "@/app/lib/context/SocketContext";
+import ChatboxClient from "@/app/components/shared/ChatboxClient";
 
 export const metadata: Metadata = {
   title: "Cinefluent - Learn English Through Movies",
@@ -64,6 +65,10 @@ export default async function RootLayout({
                         <AuthSSRInit />
                       </Suspense>
                       <AntdProvider>{children}</AntdProvider>
+                      <ChatboxClient
+                        contextType="general"
+                        title="Trợ lý CineFluent AI"
+                      />
                       <HamburgerMenu />
                       <Toaster position="top-right" closeButton />
                     </NavProvider>

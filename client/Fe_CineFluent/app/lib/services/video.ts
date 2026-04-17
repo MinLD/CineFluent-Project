@@ -92,6 +92,18 @@ export const Api_upload_subtitles = (
   });
 };
 
+export const Api_analyze_video_ai = (id: number, token: string) => {
+  return axiosClient.post(
+    `${BASE_URL}/${id}/ai-analysis`,
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+};
+
 export const Api_delete_all_subtitles = (id: number, token: string) => {
   return axiosClient.delete(`${BASE_URL}/${id}/subtitles`, {
     headers: {

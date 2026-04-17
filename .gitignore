@@ -1,2 +1,41 @@
 .env
 .env.*
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.idea/
+.vscode/
+.edge-preview/
+desktop.ini
+
+# Frontend build artifacts
+client/Fe_CineFluent/.next/
+client/Fe_CineFluent/node_modules/
+client/Fe_CineFluent/out/
+
+# Backend runtime / generated artifacts
+server/be_flask_cinefluent/storage/
+server/be_flask_cinefluent/.pytest_cache/
+server/be_flask_cinefluent/.mypy_cache/
+server/be_flask_cinefluent/app/utils/service-account.json
+
+# Local report / temporary files
+temp_docx_*.txt
+*.doc
+*.docx
+*.pdf
+docs/ktpm2026-*
+docs/hinh-2-*
+docs/hinh-3-*
+
+# OS / editor noise
+.DS_Store
+
+# Local AI model mount points
+server/be_flask_cinefluent/ai_models/
+ai_bootstrap/models/movie_difficulty_multitask/*
+!ai_bootstrap/models/movie_difficulty_multitask/README.md
+
+
