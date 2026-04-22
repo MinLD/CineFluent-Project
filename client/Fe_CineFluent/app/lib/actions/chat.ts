@@ -1,8 +1,10 @@
 "use server";
 
 import { cookies } from "next/headers";
+
 import {
   Api_Ask_Chat_Assistant,
+  Api_Ask_Public_Chat_Assistant,
   Api_Create_Chat_Session,
   Api_Get_Chat_Session_Messages,
   Api_Get_Chat_Sessions,
@@ -62,15 +64,22 @@ function emptySessionMessages(): IChatSessionMessagesResponse {
   };
 }
 
+export async function hasChatAccessTokenAction(): Promise<boolean> {
+  const cookieStore = await cookies();
+  return Boolean(cookieStore.get("access_token")?.value);
+}
+
 export async function createChatSessionAction(
   payload: ICreateChatSessionPayload,
 ): Promise<IChatSession | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("access_token")?.value;
+    if (!token) return null;
+
     const res = await Api_Create_Chat_Session(token, payload);
     return res?.data?.data ?? null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -79,9 +88,11 @@ export async function getChatSessionsAction(): Promise<IChatSession[]> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("access_token")?.value;
+    if (!token) return [];
+
     const res = await Api_Get_Chat_Sessions(token);
     return res?.data?.data ?? [];
-  } catch (error) {
+  } catch {
     return [];
   }
 }
@@ -92,9 +103,11 @@ export async function getChatSessionMessagesAction(
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("access_token")?.value;
+    if (!token) return emptySessionMessages();
+
     const res = await Api_Get_Chat_Session_Messages(token, sessionId);
     return res?.data?.data ?? emptySessionMessages();
-  } catch (error) {
+  } catch {
     return emptySessionMessages();
   }
 }
@@ -106,9 +119,22 @@ export async function askChatAssistantAction(
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("access_token")?.value;
+    if (!token) return emptyAskResponse();
+
     const res = await Api_Ask_Chat_Assistant(token, sessionId, payload);
     return res?.data?.data ?? emptyAskResponse();
-  } catch (error) {
+  } catch {
+    return emptyAskResponse();
+  }
+}
+
+export async function askPublicChatAssistantAction(
+  payload: IAskAssistantPayload,
+): Promise<IAskAssistantResponse> {
+  try {
+    const res = await Api_Ask_Public_Chat_Assistant(payload);
+    return res?.data?.data ?? emptyAskResponse();
+  } catch {
     return emptyAskResponse();
   }
 }

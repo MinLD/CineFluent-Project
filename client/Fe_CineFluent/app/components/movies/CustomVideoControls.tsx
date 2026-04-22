@@ -41,10 +41,15 @@ interface CustomVideoControlsProps {
   qualities?: string[];
   currentQuality?: string;
   onQualityChange?: (quality: string) => void;
-  subtitleSettings?: { fontSize: string; bgOpacity: number };
+  subtitleSettings?: {
+    fontSize: string;
+    bgOpacity: number;
+    learningQuizEnabled?: boolean;
+  };
   onSubtitleSettingsChange?: (settings: {
     fontSize: string;
     bgOpacity: number;
+    learningQuizEnabled?: boolean;
   }) => void;
 }
 
@@ -371,6 +376,37 @@ export function CustomVideoControls({
                         <div
                           className={`w-3 h-3 sm:w-4 sm:h-4 bg-white rounded-full absolute top-[2px] transition-all ${
                             showSubtitlePanel
+                              ? "left-[18px] sm:left-[22px]"
+                              : "left-[2px]"
+                          }`}
+                        />
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        onSubtitleSettingsChange?.({
+                          fontSize: subtitleSettings?.fontSize || "medium",
+                          bgOpacity: subtitleSettings?.bgOpacity ?? 0.9,
+                          learningQuizEnabled:
+                            !(subtitleSettings?.learningQuizEnabled ?? false),
+                        })
+                      }
+                      className="w-full px-2 sm:px-4 py-1.5 sm:py-3 text-[10px] sm:text-sm text-left transition-colors flex items-center justify-between hover:bg-white/10 text-white"
+                    >
+                      <div className="flex items-center gap-1.5 sm:gap-3">
+                        <span>Quiz học tập</span>
+                      </div>
+                      <div
+                        className={`w-8 sm:w-10 h-4 sm:h-5 rounded-full transition-colors relative ${
+                          subtitleSettings?.learningQuizEnabled ?? false
+                            ? "bg-blue-500"
+                            : "bg-gray-600"
+                        }`}
+                      >
+                        <div
+                          className={`w-3 h-3 sm:w-4 sm:h-4 bg-white rounded-full absolute top-[2px] transition-all ${
+                            subtitleSettings?.learningQuizEnabled ?? false
                               ? "left-[18px] sm:left-[22px]"
                               : "left-[2px]"
                           }`}

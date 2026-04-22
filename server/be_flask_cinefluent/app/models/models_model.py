@@ -42,6 +42,9 @@ class User(db.Model):
     ai_assessments = db.relationship('AIAssessment', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     chat_sessions = db.relationship('ChatSession', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     chat_messages = db.relationship('ChatMessage', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
+    knowledge_state = db.relationship('UserKnowledgeState', uselist=False, back_populates='user', cascade='all, delete-orphan')
+    tag_masteries = db.relationship('UserTagMastery', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
+    
     def set_password(self, password):
         self.password = generate_password_hash(password)
 
@@ -64,6 +67,44 @@ class UserProfile(db.Model):
 
     user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False, unique=True)
     user = db.relationship('User', back_populates='profile')
+
+class UserKnowledgeState(db.Model):
+    __tablename__ = 'user_knowledge_states'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, unique=True, index=True)
+    
+    # Lưu trạng thái Hidden State của LSTM (Từ Numpy mảng -> JSON)
+    # Lưu kiểu JSON cho tốc độ cao và thân thiện với môi trường SQL
+    latent_state = db.Column(db.JSON, nullable=True) 
+    
+    # Bộ đếm lượt xem (optional)
+    interaction_count = db.Column(db.Integer, default=0)
+    
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Quan hệ vòng
+    user = db.relationship('User', back_populates='knowledge_state')
+
+class UserTagMastery(db.Model):
+    __tablename__ = 'user_tag_masteries'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    tag_id = db.Column(db.Integer, db.ForeignKey('grammar_tags.id'), nullable=False, index=True) # Chỉ mục thẻ ngữ pháp (Ví dụ 10, 15)
+    
+    # Lặp lại ngắt quãng (Spaced Repetition)
+    mastery_score = db.Column(db.Float, default=0.0)      # Điểm thông thạo hiện tại (0-100)
+    interval_days = db.Column(db.Float, default=1.0)      # Khoảng cách ngày lý tưởng trước khi bị trừ điểm cực đoan
+    last_practiced_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Đảm bảo mỗi (User, Tag) là 1 dòng duy nhất
+    __table_args__ = (db.UniqueConstraint('user_id', 'tag_id', name='uq_user_tag_mastery'),)
+
+    user = db.relationship('User', back_populates='tag_masteries')
+    grammar_tag = db.relationship('GrammarTag', back_populates='user_masteries')
 
 class TokenBlocklist(db.Model):
     __tablename__ = 'token_blocklist'
@@ -120,6 +161,17 @@ class Video(db.Model):
     flashcards = db.relationship('Flashcard', back_populates='video', lazy='dynamic', cascade='all, delete-orphan')
     watch_history = db.relationship('WatchHistory', back_populates='video', lazy='dynamic', cascade='all, delete-orphan')
     ai_analysis = db.relationship('MovieAIAnalysis', back_populates='video', uselist=False, cascade='all, delete-orphan')
+# Bảng từ điển các Thẻ Ngữ Pháp (Dùng cho AI DKT và Tooltip Frontend)
+class GrammarTag(db.Model):
+    __tablename__ = 'grammar_tags'
+    id = db.Column(db.Integer, primary_key=True) # Mapping với ID của XLM-R Model (0, 1, 2...)
+    name_en = db.Column(db.String(100), nullable=False, index=True) # VD: present_simple
+    name_vi = db.Column(db.String(255), nullable=True) # VD: Thì Hiện tại đơn
+    description = db.Column(db.Text, nullable=True) # Giải thích quy tắc ngữ pháp
+    
+    # Quan hệ
+    subtitles = db.relationship('Subtitle', back_populates='grammar_tag', lazy='dynamic')
+    user_masteries = db.relationship('UserTagMastery', back_populates='grammar_tag', lazy='dynamic')
 
 class Subtitle(db.Model):
     __tablename__ = 'subtitles'
@@ -129,7 +181,13 @@ class Subtitle(db.Model):
     end_time = db.Column(db.Float, nullable=False) 
     content_en = db.Column(db.Text, nullable=False) 
     content_vi = db.Column(db.Text) 
+
+    # [XLM-R NLP Integration]
+    grammar_tag_id = db.Column(db.Integer, db.ForeignKey('grammar_tags.id'), nullable=True, index=True)
+    cloze_data = db.Column(db.JSON, nullable=True) # Chứa JSON đục lỗ: {"masked": "...", "answer": "...", "distractors": ["...", "..."]}
+    
     video = db.relationship('Video', back_populates='subtitles')
+    grammar_tag = db.relationship('GrammarTag', back_populates='subtitles')
 
 # Bảng quản lý báo lỗi thẻ phạt/phim mờ/không play được
 class VideoReport(db.Model):
@@ -284,7 +342,7 @@ class MovieAIAnalysis(db.Model):
     dominant_grammar_tags = db.Column(db.JSON, nullable=True)
     top_hard_segments = db.Column(db.JSON, nullable=True)
 
-    status = db.Column(db.Enum('READY', 'FAILED'), default='READY', nullable=False, index=True)
+    status = db.Column(db.Enum('PROCESSING', 'READY', 'FAILED'), default='READY', nullable=False, index=True)
     error_message = db.Column(db.Text, nullable=True)
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

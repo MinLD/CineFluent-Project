@@ -725,15 +725,30 @@ def export_subtitle_to_vtt(video_id):
         for i, sub in enumerate(subs):
             start = format_vtt_time(sub.start_time)
             end = format_vtt_time(sub.end_time)
-            # Ghi cả tiếng Anh và tiếng Việt (tùy nhu cầu UI, ở đây ta gộp hoặc tách tùy ý)
-            # Frontend thường cần text đơn thuần, ta có thể format đặc biệt nếu muốn
+            # Ghi cả tiếng Anh và tiếng Việt
             f.write(f"{i+1}\n")
             f.write(f"{start} --> {end}\n")
-            # Encode nội dung tiếng Việt rành mạch
-            content = sub.content_en
+            
+            # 1. English Content
+            f.write(f"{sub.content_en}\n")
+            
+            # 2. Vietnamese Content (Optional but usually present)
             if sub.content_vi:
-                content += f"\n{sub.content_vi}"
-            f.write(f"{content}\n\n")
+                f.write(f"{sub.content_vi}\n")
+            
+            # 3. AI Metadata (High-Performance Learning Payload)
+            if sub.grammar_tag_id is not None or sub.cloze_data:
+                import json
+                meta = {}
+                if sub.grammar_tag_id is not None:
+                    meta["tag_id"] = int(sub.grammar_tag_id)
+                if sub.cloze_data:
+                    meta["cloze"] = sub.cloze_data
+                
+                # Wrap metadata in a unique identifier for easier Worker parsing
+                f.write(f"[METADATA]{json.dumps(meta, ensure_ascii=False)}\n")
+            
+            f.write("\n")
 
     # 4. Cập nhật đường dẫn vào Database (URL tương đối cho Frontend)
     # Không để /api ở đầu vì sẽ bị nhân đôi khi quan qua Proxy/API_BASE_URL

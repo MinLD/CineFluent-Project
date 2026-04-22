@@ -55,11 +55,26 @@ function parseVTT(vttText: string): any[] {
       if (/^\d+$/.test(line) && !currentSub.content_en) {
         continue;
       }
+      
+      // Parse AI Metadata if found
+      if (line.startsWith("[METADATA]")) {
+        try {
+          const jsonStr = line.replace("[METADATA]", "");
+          const meta = JSON.parse(jsonStr);
+          if (meta.tag_id !== undefined) currentSub.grammar_tag_id = meta.tag_id;
+          if (meta.cloze) currentSub.cloze_data = meta.cloze;
+        } catch (err) {
+          console.warn("Failed to parse VTT metadata line:", line);
+        }
+        continue;
+      }
+
       if (!currentSub.content_en) {
         currentSub.content_en = line;
       } else if (currentSub.content_vi === null) {
         currentSub.content_vi = line;
       } else {
+        // If content_vi already exists, append (handling multi-line subtitles)
         currentSub.content_vi += " " + line;
       }
     }

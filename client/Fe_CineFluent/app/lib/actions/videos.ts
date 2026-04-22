@@ -196,7 +196,7 @@ export async function analyzeVideoDifficultyAction(videoId: number) {
         success: false,
         error:
           payload?.message ||
-          "Khong the phan tich do kho phim",
+          "Không thể phân tích ngữ pháp phim",
       };
     }
 
@@ -206,7 +206,7 @@ export async function analyzeVideoDifficultyAction(videoId: number) {
     return {
       success: true,
       data: payload?.data ?? null,
-      message: payload?.message || "Da phan tich do kho phim thanh cong",
+      message: payload?.message || "Đã bắt đầu phân tích ngữ pháp phim",
     };
   } catch (error: any) {
     return {
@@ -214,7 +214,7 @@ export async function analyzeVideoDifficultyAction(videoId: number) {
       error:
         error.response?.data?.message ||
         error.message ||
-        "Khong the phan tich do kho phim",
+        "Không thể phân tích ngữ pháp phim",
     };
   }
 }

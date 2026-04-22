@@ -486,7 +486,19 @@ def analyze_video_ai(video_id):
                 400,
             )
 
+        if video.ai_analysis and video.ai_analysis.status == "PROCESSING":
+            return success_response(
+                data={"video_id": video_id},
+                message="Phân tích ngữ pháp AI đang chạy cho video này.",
+                code=202,
+            )
+
         app_obj = current_app._get_current_object()
+        from ..services.movie_ai_service import (
+            mark_video_ai_analysis_processing_service,
+        )
+
+        mark_video_ai_analysis_processing_service(video)
 
         def _run_ai_analysis_async(target_video_id: int):
             from ..services.movie_ai_service import (
@@ -552,7 +564,7 @@ def analyze_video_ai(video_id):
 
         return success_response(
             data={"video_id": video_id},
-            message="Da bat dau phan tich do kho phim. Vui long doi trong giay lat va refresh lai.",
+            message="Đã bắt đầu phân tích ngữ pháp AI. Kết quả sẽ chuyển sang trạng thái Processing trong lúc hệ thống cập nhật metadata VTT.",
             code=202,
         )
     except Exception as ex:

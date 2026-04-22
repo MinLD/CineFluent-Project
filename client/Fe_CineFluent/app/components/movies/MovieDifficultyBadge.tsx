@@ -25,6 +25,22 @@ function getTone(level?: string, surface: "dark" | "light" = "dark") {
   }
 }
 
+function getDisplayLabel(analysis: I_Video_AI_Analysis) {
+  if (analysis.movie_level === "Grammar Optimized") {
+    return {
+      primary: "Grammar AI",
+      secondary: `${analysis.segment_count} segments`,
+      tertiary: `${analysis.dominant_grammar_tags?.length || 0} tags`,
+    };
+  }
+
+  return {
+    primary: analysis.movie_level,
+    secondary: analysis.movie_cefr_range,
+    tertiary: `Score ${analysis.movie_score.toFixed(2)}`,
+  };
+}
+
 export function MovieDifficultyBadge({
   analysis,
   compact = false,
@@ -38,20 +54,49 @@ export function MovieDifficultyBadge({
     return null;
   }
 
+  if (analysis.status === "PROCESSING") {
+    const processingTone =
+      surface === "light"
+        ? "border-sky-200 bg-sky-50 text-sky-700"
+        : "border-sky-400/30 bg-sky-500/15 text-sky-100";
+
+    if (compact) {
+      return (
+        <div
+          className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${processingTone}`}
+        >
+          <span>AI đang phân tích</span>
+          <span className="opacity-80">·</span>
+          <span>Đang cập nhật metadata</span>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className={`inline-flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${processingTone}`}
+      >
+        <span>AI đang phân tích</span>
+        <span className="opacity-80">Đang làm mới VTT</span>
+      </div>
+    );
+  }
+
   if (analysis.status && analysis.status !== "READY") {
     return null;
   }
 
   const tone = getTone(analysis.movie_level, surface);
+  const label = getDisplayLabel(analysis);
 
   if (compact) {
     return (
       <div
         className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tone}`}
       >
-        <span>{analysis.movie_level}</span>
+        <span>{label.primary}</span>
         <span className="opacity-80">·</span>
-        <span>{analysis.movie_cefr_range}</span>
+        <span>{label.secondary}</span>
       </div>
     );
   }
@@ -60,9 +105,9 @@ export function MovieDifficultyBadge({
     <div
       className={`inline-flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${tone}`}
     >
-      <span>{analysis.movie_level}</span>
-      <span className="opacity-80">{analysis.movie_cefr_range}</span>
-      <span className="opacity-80">Score {analysis.movie_score.toFixed(2)}</span>
+      <span>{label.primary}</span>
+      <span className="opacity-80">{label.secondary}</span>
+      <span className="opacity-80">{label.tertiary}</span>
     </div>
   );
 }

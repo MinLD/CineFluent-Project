@@ -7,11 +7,12 @@ import { SubtitleOverlay } from "./SubtitleOverlay";
 import { CustomVideoControls } from "./CustomVideoControls";
 import AudioPage from "./AudioPage"; // Import AudioPage
 import { QuickDictionaryModal } from "./QuickDictionaryModal";
-
+import { AdaptiveClozeModal } from "./AdaptiveClozeModal";
 import { DictationModal } from "./DictationModal";
 import { I_Subtitle, I_Video } from "@/app/lib/types/video";
 import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 import { findCurrentSubtitleIndex } from "@/app/utils/binarySearch";
+import { predictKtAction, updateKtStateAction } from "@/app/lib/actions/kt_actions";
 import {
   ArrowLeft,
   Flag,
@@ -28,7 +29,7 @@ interface VideoPlayerWrapperProps {
   video: I_Video;
 }
 
-// [FIX] Hàm trợ giúp tách ID từ URL YouTube tại Frontend
+// [FIX] HÃ m trá»£ giÃºp tÃ¡ch ID tá»« URL YouTube táº¡i Frontend
 function extractYouTubeID(url: string): string | null {
   if (!url) return null;
   const pattern = /(?:v=|\/)([0-9A-Za-z_-]{11}).*/;
@@ -39,8 +40,9 @@ function extractYouTubeID(url: string): string | null {
 export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   const isDrive = video.source_type === "local";
   const driveVideoRef = useRef<HTMLVideoElement>(null);
+  const aiAnalysisStatus = video.ai_analysis?.status;
 
-  // [FIX] Sử dụng source_url để xác định youtubeId
+  // [FIX] Sá»­ dá»¥ng source_url Ä‘á»ƒ xÃ¡c Ä‘á»‹nh youtubeId
   const youtubeId =
     video.source_type === "youtube" ? extractYouTubeID(video.source_url) : null;
 
@@ -65,7 +67,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     "both",
   );
   const [showSubtitlePanel, setShowSubtitlePanel] = useState(true);
-  const [isBlurred, setIsBlurred] = useState(false); // State làm mờ phụ đề (Shared State)
+  const [isBlurred, setIsBlurred] = useState(false); // State lÃ m má» phá»¥ Ä‘á» (Shared State)
 
   // Shadowing State
   const [shadowingSubtitle, setShadowingSubtitle] = useState<I_Subtitle | null>(
@@ -80,6 +82,15 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     null,
   );
 
+  // [DKT] Cloze Test State
+  const [clozeSubtitle, setClozeSubtitle] = useState<{ subtitle: I_Subtitle, targetTagId: number } | null>(null);
+  const predictedTagsRef = useRef<Set<number>>(new Set());
+  const pendingClozeRef = useRef<{ subtitle: I_Subtitle, targetTagId: number } | null>(null);
+  const isDktEnabledRef = useRef<boolean>(true); // Phao cá»©u sinh: Táº¯t AI náº¿u user chÆ°a Ä‘Äƒng nháº­p (401)
+
+  const learningQuizEnabledRef = useRef<boolean>(false);
+  const learningQuizRequestTokenRef = useRef<number>(0);
+
   // Quick Dictionary State
   const [selectedWord, setSelectedWord] = useState<{
     word: string;
@@ -92,7 +103,24 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   const [subtitleSettings, setSubtitleSettings] = useState({
     fontSize: "medium", // small, medium, large
     bgOpacity: 0.9, // 0 to 1
+    learningQuizEnabled: false,
   });
+  const isLearningQuizEnabled =
+    subtitleSettings.learningQuizEnabled && aiAnalysisStatus === "READY";
+
+  useEffect(() => {
+    learningQuizEnabledRef.current = isLearningQuizEnabled;
+    learningQuizRequestTokenRef.current += 1;
+
+    if (isLearningQuizEnabled) {
+      return;
+    }
+
+    pendingClozeRef.current = null;
+    predictedTagsRef.current.clear();
+    setClozeSubtitle(null);
+    setIsBlurred(false);
+  }, [isLearningQuizEnabled]);
 
   // Play/Pause Animation State
   const [playAnimation, setPlayAnimation] = useState<"play" | "pause" | null>(
@@ -133,15 +161,15 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   const hideControlsTimeoutRef = useRef<any>(null);
 
   const replayTimeoutRef = useRef<any>(null); // Ref for replay timeout
-  const playingSegmentEndTimeRef = useRef<number | null>(null); // Ref để kiểm tra thời gian kết thúc (Double Safety)
-  const activeSegmentCallbackRef = useRef<(() => void) | null>(null); // Callback khi kết thúc segment
-  const safetyCheckTimeoutRef = useRef<any>(null); // Timeout để kích hoạt Double Safety sau khi seek xong
+  const playingSegmentEndTimeRef = useRef<number | null>(null); // Ref Ä‘á»ƒ kiá»ƒm tra thá»i gian káº¿t thÃºc (Double Safety)
+  const activeSegmentCallbackRef = useRef<(() => void) | null>(null); // Callback khi káº¿t thÃºc segment
+  const safetyCheckTimeoutRef = useRef<any>(null); // Timeout Ä‘á»ƒ kÃ­ch hoáº¡t Double Safety sau khi seek xong
   const lastTimeRef = useRef(0);
   const lastIndexRef = useRef(-1);
   const currentTimeRef = useRef(0);
   const durationRef = useRef(0);
 
-  // [VTT_OPTIMIZATION] Nạp file VTT qua Web Worker
+  // [VTT_OPTIMIZATION] Náº¡p file VTT qua Web Worker
   useEffect(() => {
     if (!video.subtitle_vtt_url) return;
 
@@ -152,7 +180,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
         );
         const vttText = await response.text();
 
-        // Khởi tạo Web Worker
+        // Khá»Ÿi táº¡o Web Worker
         const worker = new Worker(
           new URL("@/app/utils/vtt.worker.ts", import.meta.url),
         );
@@ -160,20 +188,21 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
         worker.onmessage = (e) => {
           if (e.data.success) {
             console.log(
-              "✅ VTT Parsed via Worker:",
+              "âœ… VTT Parsed via Worker:",
               e.data.subtitles.length,
               "items",
             );
+
             setSubtitles(e.data.subtitles);
           } else {
-            console.error("❌ Worker Parse Error:", e.data.error);
+            console.error("âŒ Worker Parse Error:", e.data.error);
           }
           worker.terminate();
         };
 
         worker.postMessage({ vttText });
       } catch (err) {
-        console.error("❌ Failed to fetch/parse VTT:", err);
+        console.error("âŒ Failed to fetch/parse VTT:", err);
       }
     };
 
@@ -261,7 +290,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
   // --- DICTIONARY HANDLERS ---
   const handleVideoClick = useCallback(() => {
     // Prevent if modals are open
-    if (shadowingSubtitle || dictationSubtitle || selectedWord) return;
+    if (shadowingSubtitle || dictationSubtitle || selectedWord || clozeSubtitle) return;
 
     if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current);
 
@@ -357,7 +386,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
         }
         playingSegmentEndTimeRef.current = null; // Reset ref
 
-        // Gọi callback (nếu chưa được gọi bởi Interval)
+        // Gá»i callback (náº¿u chÆ°a Ä‘Æ°á»£c gá»i bá»Ÿi Interval)
         if (activeSegmentCallbackRef.current) {
           activeSegmentCallbackRef.current();
           activeSegmentCallbackRef.current = null;
@@ -450,7 +479,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       const nextSubtitle = video.subtitles[currentIndex + 1];
       handleDictationClick(nextSubtitle);
     } else {
-      // Hết bài -> Đóng modal và phát tiếp
+      // Háº¿t bÃ i -> ÄÃ³ng modal vÃ  phÃ¡t tiáº¿p
       setDictationSubtitle(null);
       if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
       else if (playerRef.current) playerRef.current.playVideo();
@@ -473,7 +502,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       video.user_history?.last_position
     ) {
       const lastPos = video.user_history.last_position;
-      // Tránh resume nếu đã ở gần cuối phim (>95%)
+      // TrÃ¡nh resume náº¿u Ä‘Ã£ á»Ÿ gáº§n cuá»‘i phim (>95%)
       if (
         video.user_history.duration &&
         lastPos / video.user_history.duration < 0.95
@@ -523,22 +552,22 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
         videoId: youtubeId,
         playerVars: {
           autoplay: 0,
-          controls: 0, // ❌ TẮT YouTube controls
+          controls: 0, // âŒ Táº®T YouTube controls
           modestbranding: 1,
           rel: 0,
-          iv_load_policy: 3, // Tắt annotations
-          disablekb: 1, // Tắt keyboard shortcuts mặc định
-          fs: 0, // Tắt fullscreen button mặc định
+          iv_load_policy: 3, // Táº¯t annotations
+          disablekb: 1, // Táº¯t keyboard shortcuts máº·c Ä‘á»‹nh
+          fs: 0, // Táº¯t fullscreen button máº·c Ä‘á»‹nh
         },
         events: {
           onReady: (event: any) => {
             console.log("YouTube player ready!");
             isInitializedRef.current = true;
-            // Lấy duration
+            // Láº¥y duration
             const dur = event.target.getDuration();
             setDuration(dur);
             durationRef.current = dur;
-            // Set volume ban đầu
+            // Set volume ban Ä‘áº§u
             event.target.setVolume(volume);
           },
           onStateChange: (event: any) => {
@@ -608,7 +637,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
       }
       isInitializedRef.current = false;
     };
-  }, [youtubeId, isDrive]); // [FIX] Sử dụng youtubeId và isDrive làm dependencies
+  }, [youtubeId, isDrive]); // [FIX] Sá»­ dá»¥ng youtubeId vÃ  isDrive lÃ m dependencies
 
   // Unified Interval & Event Listeners for Drive
   useEffect(() => {
@@ -667,13 +696,69 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
         currentTimeRef.current = time;
 
         // [VTT_OPTIMIZATION] Decoupled Index Calculation
-        // Chỉ cập nhật activeIndex khi thực sự bước sang câu mới
+        // Chá»‰ cáº­p nháº­t activeIndex khi thá»±c sá»± bÆ°á»›c sang cÃ¢u má»›i
         if (subtitles.length > 0) {
           const newIndex = findCurrentSubtitleIndex(subtitles, time);
           if (newIndex !== lastIndexRef.current) {
             setActiveIndex(newIndex);
             lastIndexRef.current = newIndex;
           }
+
+          // --- [DKT LOOK AHEAD LOGIC] ---
+          const nextIndex = newIndex !== -1 ? newIndex + 1 : 0;
+          if (
+            nextIndex < subtitles.length &&
+            isDktEnabledRef.current &&
+            isLearningQuizEnabled
+          ) {
+              const nextSub = subtitles[nextIndex];
+              const timeUntilNext = nextSub.start_time - time;
+
+              // Náº¿u cÃ¢u tiáº¿p theo náº±m trong vÃ²ng 4 giÃ¢y vÃ  cÃ³ Grammar Tag thá»±c tá»« AI
+              if (
+                 nextSub.grammar_tag_id !== undefined && nextSub.grammar_tag_id !== null &&
+                 timeUntilNext > 0 && timeUntilNext <= 4.0 &&
+                 !predictedTagsRef.current.has(nextSub.id)
+              ) {
+                  predictedTagsRef.current.add(nextSub.id); // ÄÃ¡nh dáº¥u Ä‘Ã£ fetch
+
+                  // Gá»i API Predict báº±ng Server Action (Gá»­i tag tháº­t cá»§a cÃ¢u)
+                  const requestToken = learningQuizRequestTokenRef.current;
+                  predictKtAction([nextSub.grammar_tag_id]).then(res => {
+                     if (
+                       requestToken !== learningQuizRequestTokenRef.current ||
+                       !learningQuizEnabledRef.current
+                     ) {
+                       return;
+                     }
+
+                     if (res.success && res.data && res.data.target_tag_to_cloze !== null && nextSub.cloze_data) {
+                         console.log("ðŸ”¥ AI DKT Má»‡nh Lá»‡nh: Äá»¥c lá»— tháº»", res.data.target_tag_to_cloze, "á»Ÿ cÃ¢u", nextSub.id);
+                         pendingClozeRef.current = { subtitle: nextSub, targetTagId: res.data.target_tag_to_cloze };
+                     } else if (res.success) {
+                         console.log("ðŸŒŸ AI phÃ¡n: Báº¡n Ä‘Ã£ náº¯m vá»¯ng thÃ¬ nÃ y, khÃ´ng cáº§n Ä‘á»¥c lá»—.");
+                     } else if (res.status === 401) {
+                         console.warn("User chÆ°a Ä‘Äƒng nháº­p, táº¯t luá»“ng AI DKT.");
+                         isDktEnabledRef.current = false;
+                     }
+                  }).catch(err => console.error("DKT Action Error", err));
+              }
+
+              // TIáº¾N HÃ€NH Äá»¤C Lá»– KHI Äáº¾N Táº¬N NÆ I (Náº¿u AI yÃªu cáº§u)
+              if (pendingClozeRef.current && time >= pendingClozeRef.current.subtitle.start_time) {
+                  const clozeData = pendingClozeRef.current;
+                  pendingClozeRef.current = null; // XÃ³a trigger
+
+                  // Dá»«ng video ngay láº­p tá»©c
+                  if (isDrive && driveVideoRef.current) driveVideoRef.current.pause();
+                  else if (playerRef.current?.pauseVideo) playerRef.current.pauseVideo();
+
+                  setClozeSubtitle({ subtitle: clozeData.subtitle, targetTagId: clozeData.targetTagId });
+                  setIsBlurred(true);
+              }
+          }
+          // --- END DKT LOGIC ---
+
         }
 
         // --- DOUBLE SAFETY CHECK ---
@@ -701,14 +786,14 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isPlaying, isDrive]);
+  }, [isPlaying, isDrive, isLearningQuizEnabled]);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Chỉ xử lý khi focus vào video container
+      // Chá»‰ xá»­ lÃ½ khi focus vÃ o video container
       if (!containerRef.current?.contains(document.activeElement)) return;
-      // Không xử lý nếu đang mở modal shadowing (để AudioPage handle nếu cần)
+      // KhÃ´ng xá»­ lÃ½ náº¿u Ä‘ang má»Ÿ modal shadowing (Ä‘á»ƒ AudioPage handle náº¿u cáº§n)
       if (shadowingSubtitle || dictationSubtitle) return;
 
       switch (e.key) {
@@ -716,19 +801,19 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
           e.preventDefault();
           handlePlayPause();
           break;
-        case "ArrowRight": // Tua tới 5s
+        case "ArrowRight": // Tua tá»›i 5s
           e.preventDefault();
           handleSeek(Math.min(currentTime + 5, duration));
           break;
-        case "ArrowLeft": // Tua lùi 5s
+        case "ArrowLeft": // Tua lÃ¹i 5s
           e.preventDefault();
           handleSeek(Math.max(currentTime - 5, 0));
           break;
-        case "ArrowUp": // Tăng volume
+        case "ArrowUp": // TÄƒng volume
           e.preventDefault();
           handleVolumeChange(Math.min(volume + 10, 100));
           break;
-        case "ArrowDown": // Giảm volume
+        case "ArrowDown": // Giáº£m volume
           e.preventDefault();
           handleVolumeChange(Math.max(volume - 10, 0));
           break;
@@ -774,7 +859,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3">
-      {/* Left: Video Player với Custom Controls & Subtitle Overlay */}
+      {/* Left: Video Player vá»›i Custom Controls & Subtitle Overlay */}
       <div
         className={`transition-all duration-500 ease-in-out ${
           showSubtitlePanel ? "lg:col-span-2" : "lg:col-span-3"
@@ -793,7 +878,31 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
             playerId="youtube-player-sync"
           />
 
-          {/* Phase 1: Màn hình Poster ban đầu (Backdrop + Large Loader) */}
+          {/* DKT TÆ°Æ¡ng tÃ¡c - Äá»¥c lá»— báº±ng AI */}
+          {clozeSubtitle && (
+            <AdaptiveClozeModal
+              subtitle={clozeSubtitle.subtitle}
+              targetTagId={clozeSubtitle.targetTagId}
+              onResult={(tagId, isCorrect) => {
+                 // ÄÃ³ng Modal
+                 setClozeSubtitle(null);
+                 setIsBlurred(false);
+
+                 // Cháº¡y láº¡i video
+                 if (isDrive && driveVideoRef.current) driveVideoRef.current.play();
+                 else if (playerRef.current?.playVideo) playerRef.current.playVideo();
+
+                 // Náº¡p bá»™ nÃ£o qua Server Action
+                 updateKtStateAction(tagId, isCorrect).then(res => {
+                    if (res.success) {
+                       console.log("Cáº­p nháº­t nÃ£o DKT thÃ nh cÃ´ng! Mastery má»›i:", res.data?.new_mastery);
+                    }
+                 }).catch(err => console.error("Lá»—i cáº­p nháº­t DKT Action:", err));
+              }}
+            />
+          )}
+
+          {/* Phase 1: MÃ n hÃ¬nh Poster ban Ä‘áº§u (Backdrop + Large Loader) */}
           {!hasStarted && (
             <div className="absolute inset-0 z-[30] flex flex-col items-center justify-center bg-black">
               {video.backdrop_url && (
@@ -826,7 +935,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
             </div>
           )}
 
-          {/* Phase 2: Vòng xoay khi video bị lag/buffering lúc đang xem */}
+          {/* Phase 2: VÃ²ng xoay khi video bá»‹ lag/buffering lÃºc Ä‘ang xem */}
           {hasStarted && isLoading && (
             <div className="absolute inset-0 z-[30] flex items-center justify-center pointer-events-none">
               <div className="flex items-center gap-3">
@@ -858,7 +967,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
               className="inline-flex items-center gap-1.5 md:gap-2 text-white hover:text-blue-400 transition-colors pointer-events-auto px-2 md:px-4 py-1.5 md:py-2 rounded-lg"
             >
               <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
-              <span className="text-sm md:text-base font-medium">Quay lại</span>
+              <span className="text-sm md:text-base font-medium">Quay láº¡i</span>
             </Link>
           </div>
           <span />
@@ -967,7 +1076,12 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
               currentQuality={currentQuality}
               onQualityChange={handleQualityChange}
               subtitleSettings={subtitleSettings}
-              onSubtitleSettingsChange={setSubtitleSettings}
+              onSubtitleSettingsChange={(settings) =>
+                setSubtitleSettings({
+                  ...settings,
+                  learningQuizEnabled: settings.learningQuizEnabled ?? false,
+                })
+              }
             />
           </div>
         </div>
@@ -976,7 +1090,7 @@ export function VideoPlayerWrapper({ video }: VideoPlayerWrapperProps) {
         {/* Note: Moved inside containerRef and added absolute positioning */}
       </div>
 
-      {/* Right: Subtitle Panel (để navigate) */}
+      {/* Right: Subtitle Panel (Ä‘á»ƒ navigate) */}
       {showSubtitlePanel && (
         <div className="z-[50] lg:col-span-1 animate-slide-in h-0 min-h-full">
           <SubtitlePanel

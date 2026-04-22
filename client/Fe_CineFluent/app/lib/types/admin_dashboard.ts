@@ -27,7 +27,8 @@ export interface IDashboardTopVideo {
   view_count: number;
   status: string;
   level: string;
-  cefr?: string | null;
+  ai_status?: string | null;
+  ai_label?: string | null;
   subtitle_count: number;
 }
 

@@ -1,58 +1,170 @@
 "use client";
 
-import { I_Video, I_Video_AI_Segment } from "@/app/lib/types/video";
-import { Brain, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, X } from "lucide-react";
+
+import { getGrammarTagLabel } from "@/app/lib/constants/grammar";
+import { FeApiProxyUrl } from "@/app/lib/services/api_client";
+import { I_Subtitle, I_Video, I_Video_AI_Analysis } from "@/app/lib/types/video";
 
 type Props = {
   video: I_Video;
   setClose: () => void;
 };
 
-function formatTime(seconds: number) {
-  const safeSeconds = Math.max(0, Math.floor(seconds));
-  const minutes = Math.floor(safeSeconds / 60);
-  const remain = safeSeconds % 60;
-  return `${minutes}:${remain.toString().padStart(2, "0")}`;
-}
-
-function HardSegmentCard({ segment }: { segment: I_Video_AI_Segment }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-        <span>
-          {formatTime(segment.start_time)} - {formatTime(segment.end_time)}
-        </span>
-        <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-medium text-slate-700">
-          {segment.pred_cefr}
-        </span>
-        <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 font-medium text-rose-700">
-          {segment.pred_label}
-        </span>
-        <span>Score {segment.pred_score.toFixed(2)}</span>
-      </div>
-      <p className="mt-2 text-sm leading-6 text-slate-800">
-        {segment.subtitle_text_clean}
-      </p>
-    </div>
-  );
-}
-
 export default function AdminVideoAiModal({ video, setClose }: Props) {
-  const analysis = video.ai_analysis;
+  const [analysisState, setAnalysisState] = useState<I_Video_AI_Analysis | null>(
+    video.ai_analysis ?? null,
+  );
+  const [subtitleVttUrl, setSubtitleVttUrl] = useState<string | null>(
+    video.subtitle_vtt_url || null,
+  );
+  const [subtitles, setSubtitles] = useState<I_Subtitle[]>([]);
+  const [isLoadingDistribution, setIsLoadingDistribution] = useState(false);
+  const [isPollingStatus, setIsPollingStatus] = useState(false);
+
+  useEffect(() => {
+    setAnalysisState(video.ai_analysis ?? null);
+    setSubtitleVttUrl(video.subtitle_vtt_url || null);
+  }, [video.id, video.ai_analysis, video.subtitle_vtt_url]);
+
+  useEffect(() => {
+    if (analysisState?.status !== "PROCESSING") {
+      return;
+    }
+
+    let isMounted = true;
+
+    const fetchLatestAnalysis = async () => {
+      setIsPollingStatus(true);
+
+      try {
+        const response = await fetch(`${FeApiProxyUrl}/videos/${video.id}`);
+        if (!response.ok) {
+          throw new Error("Không thể tải trạng thái AI mới nhất");
+        }
+
+        const payload = await response.json();
+        if (!isMounted) {
+          return;
+        }
+
+        const nextVideo = payload?.data as I_Video | undefined;
+        setAnalysisState(nextVideo?.ai_analysis ?? null);
+        setSubtitleVttUrl(nextVideo?.subtitle_vtt_url || null);
+      } catch (error) {
+        console.error("Failed to poll AI analysis status:", error);
+      } finally {
+        if (isMounted) {
+          setIsPollingStatus(false);
+        }
+      }
+    };
+
+    fetchLatestAnalysis();
+    const intervalId = window.setInterval(fetchLatestAnalysis, 5000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, [analysisState?.status, video.id]);
+
+  useEffect(() => {
+    if (!subtitleVttUrl || !analysisState || analysisState.status !== "READY") {
+      setSubtitles([]);
+      return;
+    }
+
+    let isMounted = true;
+    const worker = new Worker(new URL("@/app/utils/vtt.worker.ts", import.meta.url));
+
+    const fetchDistribution = async () => {
+      setIsLoadingDistribution(true);
+
+      try {
+        const response = await fetch(`${FeApiProxyUrl}${subtitleVttUrl}`);
+        if (!response.ok) {
+          throw new Error("Không thể tải VTT metadata");
+        }
+
+        const vttText = await response.text();
+
+        worker.onmessage = (event) => {
+          if (!isMounted) {
+            worker.terminate();
+            return;
+          }
+
+          if (event.data.success) {
+            setSubtitles(event.data.subtitles || []);
+          } else {
+            console.error("Grammar distribution worker error:", event.data.error);
+            setSubtitles([]);
+          }
+
+          setIsLoadingDistribution(false);
+          worker.terminate();
+        };
+
+        worker.postMessage({ vttText });
+      } catch (error) {
+        console.error("Failed to load grammar distribution:", error);
+        if (isMounted) {
+          setSubtitles([]);
+          setIsLoadingDistribution(false);
+        }
+        worker.terminate();
+      }
+    };
+
+    fetchDistribution();
+
+    return () => {
+      isMounted = false;
+      worker.terminate();
+    };
+  }, [analysisState?.status, subtitleVttUrl]);
+
+  const grammarDistribution = useMemo(() => {
+    const counts = new Map<number, number>();
+
+    for (const subtitle of subtitles) {
+      if (subtitle.grammar_tag_id === undefined || subtitle.grammar_tag_id === null) {
+        continue;
+      }
+
+      counts.set(
+        subtitle.grammar_tag_id,
+        (counts.get(subtitle.grammar_tag_id) || 0) + 1,
+      );
+    }
+
+    const total = Array.from(counts.values()).reduce((sum, count) => sum + count, 0);
+
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([tagId, count]) => ({
+        tagId,
+        label: getGrammarTagLabel(tagId),
+        count,
+        ratio: total > 0 ? count / total : 0,
+      }));
+  }, [subtitles]);
+
+  const analysis = analysisState;
 
   return (
     <div className="mx-auto w-full max-w-4xl">
       <div className="mb-6 flex items-center justify-between px-2">
         <div>
-          <h2 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
-            <Brain className="text-violet-600" />
-            Phan tich AI:
-            <span className="max-w-[420px] truncate text-violet-600">
-              {video.title}
-            </span>
+          <h2 className="text-2xl font-bold text-slate-900">
+            Phân tích AI:{" "}
+            <span className="max-w-[420px] truncate text-slate-900">{video.title}</span>
           </h2>
           <p className="mt-2 text-sm text-slate-500">
-            Trang nay dung de xem chi tiet ket qua model phan tich do kho phim.
+            Trang này tập trung vào kết quả grammar-only, cloze metadata và phân bố
+            các thì trong subtitle.
           </p>
         </div>
 
@@ -68,32 +180,80 @@ export default function AdminVideoAiModal({ video, setClose }: Props) {
         {!analysis ? (
           <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
             <p className="text-base font-semibold text-slate-800">
-              Chua co du lieu AI cho phim nay.
+              Chưa có dữ liệu AI cho phim này.
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Hay vao modal subtitle va bam nut <strong>Phan tich do kho phim</strong> de
-              luu ket qua vao database.
+              Hãy vào modal subtitle và bấm <strong>Phân tích ngữ pháp AI</strong> để
+              lưu kết quả vào database.
             </p>
           </div>
         ) : analysis.status === "FAILED" ? (
           <div className="rounded-3xl border border-rose-200 bg-rose-50 p-8 shadow-sm">
             <p className="text-base font-semibold text-rose-700">
-              AI chua phan tich thanh cong cho phim nay.
+              AI chưa phân tích thành công cho phim này.
             </p>
             <p className="mt-2 text-sm leading-6 text-rose-700/80">
-              {analysis.error_message || "Khong co thong tin loi chi tiet."}
+              {analysis.error_message || "Không có thông tin lỗi chi tiết."}
             </p>
+          </div>
+        ) : analysis.status === "PROCESSING" ? (
+          <div className="space-y-6">
+            <div className="rounded-3xl border border-sky-200 bg-sky-50 p-8 shadow-sm">
+              <div className="flex items-center gap-3 text-sky-700">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <p className="text-base font-semibold">AI đang phân tích và cập nhật VTT</p>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-sky-800/80">
+                Trong lúc này modal sẽ ẩn kết quả cũ để tránh hiển thị stale data.
+                Hệ thống tự kiểm tra lại trạng thái mỗi 5 giây.
+              </p>
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
+                <div className="rounded-2xl bg-white/80 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Trạng thái
+                  </p>
+                  <p className="mt-2 text-lg font-bold text-slate-800">PROCESSING</p>
+                </div>
+                <div className="rounded-2xl bg-white/80 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Chế độ
+                  </p>
+                  <p className="mt-2 text-lg font-bold text-slate-800">
+                    {analysis.movie_level || "Grammar Optimized"}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-white/80 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Đồng bộ
+                  </p>
+                  <p className="mt-2 text-lg font-bold text-slate-800">
+                    {isPollingStatus ? "Đang kiểm tra..." : "Chờ vòng quét tiếp theo"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="animate-pulse">
+                    <div className="mb-2 h-4 w-40 rounded bg-slate-100" />
+                    <div className="h-2.5 rounded-full bg-slate-100" />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-3">
               <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                  Trinh do phim
+                  Trạng thái AI
                 </p>
                 <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <span className="rounded-2xl bg-violet-600 px-4 py-2 text-xl font-bold text-white shadow-sm">
-                    {analysis.movie_cefr_range}
+                  <span className="rounded-2xl bg-slate-900 px-4 py-2 text-xl font-bold text-white shadow-sm">
+                    READY
                   </span>
                   <span className="text-sm font-semibold text-slate-500">
                     {analysis.movie_level}
@@ -102,18 +262,18 @@ export default function AdminVideoAiModal({ video, setClose }: Props) {
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <div className="rounded-2xl bg-slate-50 p-3">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Score
+                      Segments
                     </p>
                     <p className="mt-1 text-lg font-bold text-slate-800">
-                      {analysis.movie_score.toFixed(2)}
+                      {analysis.segment_count}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 p-3">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Subtitle
+                      Grammar Tags
                     </p>
                     <p className="mt-1 text-lg font-bold text-slate-800">
-                      {analysis.segment_count}
+                      {grammarDistribution.length}
                     </p>
                   </div>
                 </div>
@@ -121,24 +281,25 @@ export default function AdminVideoAiModal({ video, setClose }: Props) {
 
               <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:col-span-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                  Ngu phap noi bat
+                  Ngữ pháp nổi bật
                 </p>
                 <p className="mt-2 text-sm text-slate-500">
-                  Day la cac mau cau va cau truc xuat hien nhieu trong subtitle ma AI da phan tich.
+                  Đây là các grammar tags xuất hiện nhiều nhất trong subtitle mà AI đã
+                  phân loại.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {analysis.dominant_grammar_tags?.length ? (
                     analysis.dominant_grammar_tags.map((tag) => (
                       <span
                         key={tag}
-                        className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700"
+                        className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
                       >
                         {tag}
                       </span>
                     ))
                   ) : (
                     <span className="text-sm text-slate-400">
-                      Chua co mau ngu phap noi bat.
+                      Chưa có mẫu ngữ pháp nổi bật.
                     </span>
                   )}
                 </div>
@@ -146,19 +307,42 @@ export default function AdminVideoAiModal({ video, setClose }: Props) {
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                Cac doan kho tieu bieu
-              </p>
-              <div className="mt-4 space-y-3">
-                {analysis.top_hard_segments?.length ? (
-                  analysis.top_hard_segments
-                    .slice(0, 5)
-                    .map((segment) => (
-                      <HardSegmentCard key={segment.scene_id} segment={segment} />
-                    ))
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  Grammar Distribution
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Biểu đồ này đọc trực tiếp từ VTT metadata đã inject nên sẽ đồng bộ với
+                  luồng player và DKT trigger.
+                </p>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {isLoadingDistribution ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Đang đọc VTT metadata để tính phân bố ngữ pháp...
+                  </div>
+                ) : grammarDistribution.length ? (
+                  grammarDistribution.map((item) => (
+                    <div key={item.tagId}>
+                      <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                        <span className="font-medium text-slate-700">{item.label}</span>
+                        <span className="text-slate-500">
+                          {item.count} câu - {Math.round(item.ratio * 100)}%
+                        </span>
+                      </div>
+                      <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-slate-900"
+                          style={{ width: `${Math.max(item.ratio * 100, 4)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
                 ) : (
                   <p className="text-sm text-slate-400">
-                    Chua co subtitle kho duoc luu.
+                    Chưa đọc được grammar metadata từ subtitle VTT.
                   </p>
                 )}
               </div>

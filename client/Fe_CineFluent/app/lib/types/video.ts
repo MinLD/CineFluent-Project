@@ -6,20 +6,19 @@ export interface I_Subtitle {
   end_time: number;
   content_en: string;
   content_vi: string | null;
+  grammar_tag_id?: number | null;
+  cloze_data?: any;
 }
 
 export interface I_Video_AI_Segment {
   scene_id: string;
   subtitle_text_clean: string;
-  duration: number;
   start_time: number;
   end_time: number;
-  pred_score: number;
-  pred_label: "easy" | "medium" | "hard" | string;
-  pred_cefr: "A2" | "B1" | "B2" | string;
-  pred_grammar_tag: string;
-  difficulty_confidence: number;
-  grammar_confidence: number;
+  grammar_tag: string;
+  grammar_tag_id: number;
+  confidence: number;
+  cloze_data?: any;
 }
 
 export interface I_Video_AI_Analysis {
@@ -32,8 +31,14 @@ export interface I_Video_AI_Analysis {
   difficulty_ratios: Record<string, number>;
   cefr_ratios: Record<string, number>;
   dominant_grammar_tags: string[];
+  grammar_distribution?: {
+    tag_id: number;
+    label: string;
+    count: number;
+    ratio: number;
+  }[];
   top_hard_segments: I_Video_AI_Segment[];
-  status?: "READY" | "FAILED" | string;
+  status?: "PROCESSING" | "READY" | "FAILED" | string;
   error_message?: string | null;
   predicted_segments?: I_Video_AI_Segment[];
   model_meta?: {

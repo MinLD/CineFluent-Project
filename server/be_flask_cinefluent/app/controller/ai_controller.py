@@ -59,18 +59,13 @@ def predict_movie_difficulty():
         response_payload = {
             "source_name": report.get("source_name"),
             "segment_count": report["segment_count"],
-            "movie_score": report["movie_score"],
-            "movie_level": report["movie_level"],
-            "movie_cefr_range": report["movie_cefr_range"],
-            "difficulty_ratios": report["difficulty_ratios"],
-            "cefr_ratios": report["cefr_ratios"],
             "dominant_grammar_tags": report["dominant_grammar_tags"],
-            "top_hard_segments": report["top_hard_segments"],
+            "predicted_segments": report["predicted_segments"],
             "model_meta": report["model_meta"],
         }
         return success_response(
             data=response_payload,
-            message="Phan tich do kho subtitle thanh cong.",
+            message="Phan tich ngu phap subtitle thanh cong.",
         )
     except Exception as ex:
         current_app.logger.exception("[AI_DEMO_PREDICT_ERROR]")

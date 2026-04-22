@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from google.genai import types
@@ -65,7 +66,13 @@ def _format_chat_history(session_id: int, limit: int = 6) -> str:
     ordered_messages = list(reversed(messages))
     lines: list[str] = []
     for item in ordered_messages:
-        role = "Người dùng" if item.role == "user" else "Trợ lý" if item.role == "assistant" else "Hệ thống"
+        role = (
+            "Người dùng"
+            if item.role == "user"
+            else "Trợ lý"
+            if item.role == "assistant"
+            else "Hệ thống"
+        )
         lines.append(f"{role}: {item.content}")
     return "\n".join(lines)
 
@@ -149,36 +156,14 @@ def _extract_usage(response) -> dict | None:
     }
 
 
-def send_chat_message_with_ai_service(
-    user_id: str,
-    session_id: int,
+def _run_ai_chat_completion(
+    *,
     content: str,
-    client_state: dict | None = None,
+    context_type: str,
+    runtime_context: dict | None,
+    chat_history_text: str,
 ):
-    session = ChatSession.query.get(session_id)
-    if not session or session.user_id != user_id:
-        return {"success": False, "error": "Không tìm thấy phiên chat", "code": 404}
-
-    user_message_result = append_chat_message_service(
-        user_id=user_id,
-        session_id=session_id,
-        role="user",
-        content=content,
-    )
-    if not user_message_result.get("success"):
-        return user_message_result
-
-    runtime_result = build_chat_context_service(
-        user_id=user_id,
-        context_type=session.context_type,
-        context_id=int(session.context_id) if session.context_id is not None and str(session.context_id).isdigit() else None,
-        client_state=client_state,
-    )
-    if not runtime_result.get("success"):
-        return runtime_result
-
-    runtime_context = runtime_result.get("data")
-    orchestration_mode = _resolve_orchestration_mode(session.context_type)
+    orchestration_mode = _resolve_orchestration_mode(context_type)
 
     rag_sources: list[dict] = []
     if orchestration_mode in {"rag", "hybrid"}:
@@ -191,11 +176,10 @@ def send_chat_message_with_ai_service(
             vector_store=vector_store,
             embedding_provider=embedding_provider,
             top_k=5,
-            context_type=session.context_type,
+            context_type=context_type,
         )
         rag_sources = _serialize_retrieval_hits(rag_hits)
 
-    chat_history_text = _format_chat_history(session_id=session_id, limit=6)
     prompt = _build_prompt(
         user_message=content,
         orchestration_mode=orchestration_mode,
@@ -225,15 +209,128 @@ def send_chat_message_with_ai_service(
             "code": 500,
         }
 
+    return {
+        "success": True,
+        "data": {
+            "mode": orchestration_mode,
+            "assistant_text": assistant_text,
+            "context_used": runtime_context,
+            "sources": rag_sources,
+            "usage": _extract_usage(response),
+            "latency_ms": latency_ms,
+        },
+    }
+
+
+def _build_ephemeral_chat_message(
+    *,
+    role: str,
+    content: str,
+    context_used: dict | None = None,
+    sources: list[dict] | None = None,
+    usage: dict | None = None,
+    latency_ms: int | None = None,
+):
+    return {
+        "id": int(time.time() * 1000),
+        "session_id": 0,
+        "user_id": "guest",
+        "role": role,
+        "content": content,
+        "context_used": context_used,
+        "sources": sources,
+        "usage": usage,
+        "latency_ms": latency_ms,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _format_ephemeral_chat_history(history: list[dict] | None, limit: int = 6) -> str:
+    if not isinstance(history, list):
+        return "Chưa có lịch sử hội thoại trước đó của khách."
+
+    normalized_history: list[dict] = []
+    for item in history:
+        if not isinstance(item, dict):
+            continue
+
+        role = str(item.get("role") or "").strip()
+        content = str(item.get("content") or "").strip()
+        if role not in {"system", "user", "assistant"} or not content:
+            continue
+
+        normalized_history.append({"role": role, "content": content})
+
+    if not normalized_history:
+        return "Chưa có lịch sử hội thoại trước đó của khách."
+
+    lines: list[str] = []
+    for item in normalized_history[-limit:]:
+        role_label = (
+            "Người dùng"
+            if item["role"] == "user"
+            else "Trợ lý"
+            if item["role"] == "assistant"
+            else "Hệ thống"
+        )
+        lines.append(f"{role_label}: {item['content']}")
+    return "\n".join(lines)
+
+
+def send_chat_message_with_ai_service(
+    user_id: str,
+    session_id: int,
+    content: str,
+    client_state: dict | None = None,
+):
+    session = ChatSession.query.get(session_id)
+    if not session or session.user_id != user_id:
+        return {"success": False, "error": "Không tìm thấy phiên chat", "code": 404}
+
+    user_message_result = append_chat_message_service(
+        user_id=user_id,
+        session_id=session_id,
+        role="user",
+        content=content,
+    )
+    if not user_message_result.get("success"):
+        return user_message_result
+
+    runtime_result = build_chat_context_service(
+        user_id=user_id,
+        context_type=session.context_type,
+        context_id=(
+            int(session.context_id)
+            if session.context_id is not None and str(session.context_id).isdigit()
+            else None
+        ),
+        client_state=client_state,
+    )
+    if not runtime_result.get("success"):
+        return runtime_result
+
+    runtime_context = runtime_result.get("data")
+    chat_history_text = _format_chat_history(session_id=session_id, limit=6)
+    ai_result = _run_ai_chat_completion(
+        content=content,
+        context_type=session.context_type,
+        runtime_context=runtime_context,
+        chat_history_text=chat_history_text,
+    )
+    if not ai_result.get("success"):
+        return ai_result
+
+    ai_payload = ai_result.get("data") or {}
+
     assistant_message_result = append_chat_message_service(
         user_id=user_id,
         session_id=session_id,
         role="assistant",
-        content=assistant_text,
-        context_used=runtime_context,
-        sources=rag_sources,
-        usage=_extract_usage(response),
-        latency_ms=latency_ms,
+        content=ai_payload.get("assistant_text"),
+        context_used=ai_payload.get("context_used"),
+        sources=ai_payload.get("sources"),
+        usage=ai_payload.get("usage"),
+        latency_ms=ai_payload.get("latency_ms"),
     )
     if not assistant_message_result.get("success"):
         return assistant_message_result
@@ -242,10 +339,63 @@ def send_chat_message_with_ai_service(
         "success": True,
         "data": {
             "session_id": session_id,
-            "mode": orchestration_mode,
+            "mode": ai_payload.get("mode"),
             "user_message": user_message_result.get("data"),
             "assistant_message": assistant_message_result.get("data"),
-            "context_used": runtime_context,
-            "sources": rag_sources,
+            "context_used": ai_payload.get("context_used"),
+            "sources": ai_payload.get("sources"),
+        },
+    }
+
+
+def send_public_chat_message_with_ai_service(
+    content: str,
+    client_state: dict | None = None,
+    history: list[dict] | None = None,
+):
+    normalized_content = (content or "").strip()
+    if not normalized_content:
+        return {"success": False, "error": "content không được để trống", "code": 400}
+
+    runtime_result = build_chat_context_service(
+        user_id="guest",
+        context_type="general",
+        context_id=None,
+        client_state=client_state,
+    )
+    if not runtime_result.get("success"):
+        return runtime_result
+
+    runtime_context = runtime_result.get("data")
+    ai_result = _run_ai_chat_completion(
+        content=normalized_content,
+        context_type="general",
+        runtime_context=runtime_context,
+        chat_history_text=_format_ephemeral_chat_history(history),
+    )
+    if not ai_result.get("success"):
+        return ai_result
+
+    ai_payload = ai_result.get("data") or {}
+
+    return {
+        "success": True,
+        "data": {
+            "session_id": 0,
+            "mode": ai_payload.get("mode"),
+            "user_message": _build_ephemeral_chat_message(
+                role="user",
+                content=normalized_content,
+            ),
+            "assistant_message": _build_ephemeral_chat_message(
+                role="assistant",
+                content=ai_payload.get("assistant_text") or "",
+                context_used=ai_payload.get("context_used"),
+                sources=ai_payload.get("sources"),
+                usage=ai_payload.get("usage"),
+                latency_ms=ai_payload.get("latency_ms"),
+            ),
+            "context_used": ai_payload.get("context_used"),
+            "sources": ai_payload.get("sources"),
         },
     }

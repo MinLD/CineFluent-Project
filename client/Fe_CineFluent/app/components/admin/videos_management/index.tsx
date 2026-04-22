@@ -37,7 +37,7 @@ function renderAiStatus(video: I_Video) {
   if (!analysis) {
     return (
       <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-500">
-        Chua phan tich
+        Chưa phân tích
       </span>
     );
   }
@@ -45,14 +45,22 @@ function renderAiStatus(video: I_Video) {
   if (analysis.status === "FAILED") {
     return (
       <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700">
-        Loi AI
+        Lỗi AI
+      </span>
+    );
+  }
+
+  if (analysis.status === "PROCESSING") {
+    return (
+      <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
+        Đang phân tích
       </span>
     );
   }
 
   return (
     <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-      {analysis.movie_cefr_range}
+      Grammar AI
     </span>
   );
 }

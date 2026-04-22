@@ -8,56 +8,26 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
-from transformers import AutoTokenizer, XLMRobertaConfig, XLMRobertaModel
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig
 
 
 MODEL_NAME = "FacebookAI/xlm-roberta-base"
 MAX_LENGTH = 128
-DEFAULT_MODEL_DIR = "/app/ai_models/movie_difficulty_multitask"
+DEFAULT_MODEL_DIR = "storage/models/grammar_xlm_roberta"
+
+# Load spaCy for automated masking
+import spacy
+try:
+    nlp = spacy.load("en_core_web_sm")
+except:
+    # Fail-safe if model not downloaded
+    nlp = None
 
 _MODEL_BUNDLE = None
 _MODEL_LOCK = threading.Lock()
 
 
-class XLMRMultiTaskModel(nn.Module):
-    def __init__(self, num_difficulty_labels: int, num_grammar_labels: int):
-        super().__init__()
-        # The Colab checkpoint was trained from xlm-roberta-base.
-        # We recreate the encoder architecture with matching XLM-R defaults
-        # before loading the saved state_dict from multitask_model.pt.
-        encoder_config = XLMRobertaConfig(
-            vocab_size=250002,
-            max_position_embeddings=514,
-            type_vocab_size=1,
-            hidden_size=768,
-            num_hidden_layers=12,
-            num_attention_heads=12,
-            intermediate_size=3072,
-            hidden_dropout_prob=0.1,
-            attention_probs_dropout_prob=0.1,
-            pad_token_id=1,
-            bos_token_id=0,
-            eos_token_id=2,
-        )
-        self.encoder = XLMRobertaModel(encoder_config)
-        hidden_size = self.encoder.config.hidden_size
-        dropout_prob = getattr(self.encoder.config, "hidden_dropout_prob", 0.1)
-
-        self.dropout = nn.Dropout(dropout_prob)
-        self.difficulty_head = nn.Linear(hidden_size, num_difficulty_labels)
-        self.grammar_head = nn.Linear(hidden_size, num_grammar_labels)
-
-    def forward(self, input_ids=None, attention_mask=None):
-        outputs = self.encoder(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            return_dict=True,
-        )
-        pooled = outputs.last_hidden_state[:, 0]
-        pooled = self.dropout(pooled)
-        difficulty_logits = self.difficulty_head(pooled)
-        grammar_logits = self.grammar_head(pooled)
-        return difficulty_logits, grammar_logits
+# Old XLMRMultiTaskModel removed. Using AutoModelForSequenceClassification instead.
 
 
 def _clean_subtitle_text(text: str) -> str:
@@ -68,30 +38,30 @@ def _clean_subtitle_text(text: str) -> str:
     text = re.sub(r"{\\.*?}", " ", text)
     text = re.sub(r"\[.*?\]", " ", text)
     text = re.sub(r"\(.*?\)", " ", text)
-    text = text.replace("♪", " ")
+    text = text.replace("â™ª", " ")
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
 
 def _resolve_model_dir() -> Path:
     env_dir = os.getenv("MOVIE_AI_MODEL_DIR")
-    candidates = []
     if env_dir:
-        candidates.append(Path(env_dir))
-
-    candidates.append(Path(DEFAULT_MODEL_DIR))
+        return Path(env_dir)
 
     current_file = Path(__file__).resolve()
-    for parent in current_file.parents:
-        candidates.append(parent / "ai_bootstrap" / "models" / "movie_difficulty_multitask")
+    # Search in common locations
+    search_paths = [
+        current_file.parents[2] / "storage" / "models" / "grammar_xlm_roberta",
+        Path(DEFAULT_MODEL_DIR)
+    ]
 
-    for candidate in candidates:
-        if candidate.exists():
+    for candidate in search_paths:
+        if candidate.exists() and (candidate / "model.safetensors").exists():
             return candidate
 
     raise FileNotFoundError(
-        "Không tìm thấy thư mục model AI. Hãy mount model vào /app/ai_models/movie_difficulty_multitask "
-        "hoặc đặt trong ai_bootstrap/models/movie_difficulty_multitask."
+        f"KhÃ´ng tÃ¬m tháº¥y thÆ° má»¥c model AI táº¡i {search_paths}. "
+        "HÃ£y Ä‘áº£m báº£o model Ä‘Ã£ Ä‘Æ°á»£c Ä‘áº·t trong storage/models/grammar_xlm_roberta/."
     )
 
 
@@ -164,30 +134,10 @@ def load_movie_ai_bundle():
             return _MODEL_BUNDLE
 
         model_dir = _resolve_model_dir()
-        required_files = [
-            "multitask_model.pt",
-            "tokenizer.json",
-            "tokenizer_config.json",
-            "score_bins.json",
-            "grammar_label_map.json",
-        ]
-        missing_files = [name for name in required_files if not (model_dir / name).exists()]
-        if missing_files:
-            raise FileNotFoundError(
-                f"Thiếu file model AI trong {model_dir}: {', '.join(missing_files)}"
-            )
-
-        score_bins, midpoint_vector = _load_score_bins(model_dir)
         grammar_id_to_label = _load_grammar_label_map(model_dir)
 
         tokenizer = AutoTokenizer.from_pretrained(str(model_dir), local_files_only=True)
-
-        model = XLMRMultiTaskModel(
-            num_difficulty_labels=len(score_bins),
-            num_grammar_labels=len(grammar_id_to_label),
-        )
-        state_dict = torch.load(model_dir / "multitask_model.pt", map_location="cpu")
-        model.load_state_dict(state_dict)
+        model = AutoModelForSequenceClassification.from_pretrained(str(model_dir), local_files_only=True)
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model.to(device)
@@ -199,22 +149,63 @@ def load_movie_ai_bundle():
             "device": device,
             "tokenizer": tokenizer,
             "model": model,
-            "score_bins": score_bins,
-            "midpoint_vector": midpoint_vector,
             "grammar_id_to_label": grammar_id_to_label,
         }
         return _MODEL_BUNDLE
 
 
-def _predict_subtitles(cleaned_rows: list[dict], batch_size: int = 16) -> list[dict]:
+def generate_cloze_data(text: str):
+    """
+    Sá»­ dá»¥ng spaCy Ä‘á»ƒ tá»± Ä‘á»™ng Ä‘á»¥c lá»— Äá»™ng tá»« chÃ­nh vÃ  táº¡o Ä‘Ã¡p Ã¡n nhiá»…u.
+    """
+    if not nlp:
+        return None
+
+    doc = nlp(text)
+    # TÃ¬m Ä‘á»™ng tá»« chÃ­nh (thÆ°á»ng lÃ  VERB, khÃ´ng pháº£i AUX)
+    verbs = [token for token in doc if token.pos_ == "VERB" and not token.is_stop]
+    if not verbs:
+        verbs = [token for token in doc if token.pos_ == "AUX"] # Fail-safe sang trá»£ Ä‘á»™ng tá»«
+
+    if not verbs:
+        return None
+
+    # Chá»n Ä‘á»™ng tá»« quan trá»ng nháº¥t (thÆ°á»ng lÃ  cÃ¡i Ä‘áº§u tiÃªn hoáº·c dÃ i nháº¥t, á»Ÿ Ä‘Ã¢y chá»n cÃ¡i Ä‘áº§u tiÃªn)
+    target = verbs[0]
+    lemma = target.lemma_.lower()
+
+    # Sinh Ä‘Ã¡p Ã¡n nhiá»…u cÆ¡ báº£n dá»±a trÃªn lemma (Gá»£i Ã½ quy luáº­t)
+    distractors = set()
+    if lemma.endswith('e'):
+        distractors.add(lemma + "ing")
+    else:
+        distractors.add(lemma + "ing")
+
+    distractors.add(lemma + "ed")
+    distractors.add(lemma + "s")
+    distractors.add(lemma)
+
+    # Loáº¡i bá» Ä‘Ã¡p Ã¡n Ä‘Ãºng ra khá»i list nhiá»…u
+    distractors.discard(target.text.lower())
+
+    # Format tráº£ vá» cho Frontend
+    final_distractors = list(distractors)[:3] # Láº¥y tá»‘i Ä‘a 3 cÃ¡i
+
+    return {
+        "masked_text": text.replace(target.text, "____", 1),
+        "target_word": target.text,
+        "distractors": final_distractors,
+        "cloze_type": "grammar_verb"
+    }
+
+def _predict_grammar_only(cleaned_rows: list[dict], batch_size: int = 16) -> list[dict]:
     bundle = load_movie_ai_bundle()
     tokenizer = bundle["tokenizer"]
     model = bundle["model"]
     device = bundle["device"]
-    midpoint_vector = bundle["midpoint_vector"]
     grammar_id_to_label = bundle["grammar_id_to_label"]
 
-    predictions = []
+    results = []
     for index in range(0, len(cleaned_rows), batch_size):
         batch_rows = cleaned_rows[index:index + batch_size]
         texts = [row["subtitle_text_clean"] for row in batch_rows]
@@ -228,98 +219,89 @@ def _predict_subtitles(cleaned_rows: list[dict], batch_size: int = 16) -> list[d
         encoded = {key: value.to(device) for key, value in encoded.items()}
 
         with torch.no_grad():
-            difficulty_logits, grammar_logits = model(**encoded)
+            outputs = model(**encoded)
+            logits = outputs.logits
 
-        difficulty_probs = torch.softmax(difficulty_logits, dim=-1).cpu().numpy()
-        grammar_probs = torch.softmax(grammar_logits, dim=-1).cpu().numpy()
-        pred_scores = difficulty_probs @ midpoint_vector
-        pred_grammar_ids = np.argmax(grammar_probs, axis=-1)
+        probs = torch.softmax(logits, dim=-1).cpu().numpy()
+        pred_ids = np.argmax(probs, axis=-1)
 
-        for row, pred_score, diff_prob, grammar_prob, grammar_idx in zip(
-            batch_rows,
-            pred_scores,
-            difficulty_probs,
-            grammar_probs,
-            pred_grammar_ids,
-        ):
-            predictions.append(
-                {
-                    "scene_id": row["scene_id"],
-                    "subtitle_text_clean": row["subtitle_text_clean"],
-                    "duration": round(float(row["duration"]), 3),
-                    "start_time": round(float(row["start_time"]), 3),
-                    "end_time": round(float(row["end_time"]), 3),
-                    "pred_score": round(float(pred_score), 4),
-                    "pred_label": _score_to_label(float(pred_score)),
-                    "pred_cefr": _score_to_cefr(float(pred_score)),
-                    "pred_grammar_tag": grammar_id_to_label.get(int(grammar_idx), "unknown"),
-                    "difficulty_confidence": round(float(np.max(diff_prob)), 4),
-                    "grammar_confidence": round(float(np.max(grammar_prob)), 4),
-                }
-            )
+        for row, prob, g_idx in zip(batch_rows, probs, pred_ids):
+            label = grammar_id_to_label.get(int(g_idx), "unknown")
+            # Táº¡o Cloze Data tá»± Ä‘á»™ng
+            cloze = generate_cloze_data(row["subtitle_text_clean"])
 
-    return predictions
+            results.append({
+                "scene_id": row["scene_id"],
+                "subtitle_text_clean": row["subtitle_text_clean"],
+                "start_time": row["start_time"],
+                "end_time": row["end_time"],
+                "grammar_tag": label,
+                "grammar_tag_id": int(g_idx),
+                "confidence": float(np.max(prob)),
+                "cloze_data": cloze
+            })
+
+    return results
 
 
 def analyze_video_subtitles_service(video, subtitles) -> dict:
+    from ..extensions import db
+
     cleaned_rows = []
+    # Dictionary to map subtitle scene_id back to subtitle object
+    id_to_sub = { f"subtitle_{s.id}": s for s in subtitles }
+
+    # Clear stale AI metadata before writing a fresh analysis pass.
+    for subtitle in subtitles:
+        subtitle.grammar_tag_id = None
+        subtitle.cloze_data = None
+
     for subtitle in subtitles:
         cleaned_text = _clean_subtitle_text(subtitle.content_en)
-        if not cleaned_text:
+        # Bá» qua cÃ¢u quÃ¡ ngáº¯n (< 3 tá»«) Ä‘á»ƒ AI ko dÃ¡n nhÃ£n bá»«a
+        if not cleaned_text or len(cleaned_text.split()) < 3:
             continue
 
-        duration = max(float(subtitle.end_time or 0) - float(subtitle.start_time or 0), 0.1)
         cleaned_rows.append(
             {
                 "scene_id": f"subtitle_{subtitle.id}",
                 "subtitle_text_clean": cleaned_text,
-                "duration": duration,
                 "start_time": float(subtitle.start_time or 0),
                 "end_time": float(subtitle.end_time or 0),
             }
         )
 
     if not cleaned_rows:
-        raise ValueError("Video này chưa có subtitle tiếng Anh hợp lệ để phân tích.")
+        raise ValueError("Video nÃ y chÆ°a cÃ³ subtitle tiáº¿ng Anh Ä‘á»§ dÃ i (>= 3 tá»«) Ä‘á»ƒ dÃ¡n nhÃ£n ngá»¯ phÃ¡p.")
 
-    predictions = _predict_subtitles(cleaned_rows)
+    # Gá»i bá»™ nÃ£o AI 12 thÃ¬
+    predictions = _predict_grammar_only(cleaned_rows)
 
-    weights = np.array([max(item["duration"], 0.1) for item in predictions], dtype=np.float32)
-    scores = np.array([item["pred_score"] for item in predictions], dtype=np.float32)
-    movie_score = float(np.average(scores, weights=weights))
+    # LÆ°u káº¿t quáº£ vÃ o Database cho tá»«ng Subtitle
+    for pred in predictions:
+        sub_obj = id_to_sub.get(pred["scene_id"])
+        if sub_obj:
+            sub_obj.grammar_tag_id = pred["grammar_tag_id"]
+            sub_obj.cloze_data = pred["cloze_data"]
 
-    difficulty_counter = Counter(item["pred_label"] for item in predictions)
-    cefr_counter = Counter(item["pred_cefr"] for item in predictions)
-    grammar_counter = Counter(item["pred_grammar_tag"] for item in predictions)
+    db.session.commit()
 
-    difficulty_ratios = _normalize_ratios(difficulty_counter, ["easy", "medium", "hard"])
-    cefr_ratios = _normalize_ratios(cefr_counter, ["A2", "B1", "B2"])
-    dominant_grammar_tags = [tag for tag, _ in grammar_counter.most_common(3)]
+    grammar_counter = Counter(item["grammar_tag"] for item in predictions)
+    dominant_grammar_tags = [tag for tag, _ in grammar_counter.most_common(5)]
 
-    top_hard_segments = sorted(
-        predictions,
-        key=lambda item: (item["pred_score"], item["difficulty_confidence"], item["duration"]),
-        reverse=True,
-    )[:10]
-
-    return {
+    results = {
         "video_id": video.id,
         "video_title": video.title,
         "segment_count": len(predictions),
-        "movie_score": round(movie_score, 4),
-        "movie_level": _score_to_movie_level(movie_score),
-        "movie_cefr_range": _build_cefr_range(cefr_ratios),
-        "difficulty_ratios": difficulty_ratios,
-        "cefr_ratios": cefr_ratios,
         "dominant_grammar_tags": dominant_grammar_tags,
-        "top_hard_segments": top_hard_segments,
         "predicted_segments": predictions,
         "model_meta": {
-            "model_name": MODEL_NAME,
+            "model_name": "XLM-Roberta-Grammar-Only",
             "model_dir": load_movie_ai_bundle()["model_dir"],
-            "mode": "multitask_inference",
+            "mode": "grammar_classification_v2",
         },
     }
+    return results
 
 
 def analyze_subtitle_content_service(subtitle_content: str, source_name: str | None = None) -> dict:
@@ -337,7 +319,7 @@ def analyze_subtitle_content_service(subtitle_content: str, source_name: str | N
     cleaned_rows = []
     for index, entry in enumerate(parsed_entries, start=1):
         cleaned_text = _clean_subtitle_text(entry.get("text"))
-        if not cleaned_text:
+        if not cleaned_text or len(cleaned_text.split()) < 3:
             continue
 
         start_time = float(entry.get("start_time", 0) or 0)
@@ -346,58 +328,63 @@ def analyze_subtitle_content_service(subtitle_content: str, source_name: str | N
             {
                 "scene_id": f"segment_{index:05d}",
                 "subtitle_text_clean": cleaned_text,
-                "duration": max(end_time - start_time, 0.1),
                 "start_time": start_time,
                 "end_time": end_time,
             }
         )
 
     if not cleaned_rows:
-        raise ValueError("Khong parse duoc subtitle hop le tu noi dung gui len.")
+        raise ValueError("Khong parse duoc subtitle du dai (>= 3 tu) tu noi dung gui len.")
 
-    predictions = _predict_subtitles(cleaned_rows)
-
-    weights = np.array([max(item["duration"], 0.1) for item in predictions], dtype=np.float32)
-    scores = np.array([item["pred_score"] for item in predictions], dtype=np.float32)
-    movie_score = float(np.average(scores, weights=weights))
-
-    difficulty_counter = Counter(item["pred_label"] for item in predictions)
-    cefr_counter = Counter(item["pred_cefr"] for item in predictions)
-    grammar_counter = Counter(item["pred_grammar_tag"] for item in predictions)
-
-    difficulty_ratios = _normalize_ratios(difficulty_counter, ["easy", "medium", "hard"])
-    cefr_ratios = _normalize_ratios(cefr_counter, ["A2", "B1", "B2"])
-    dominant_grammar_tags = [tag for tag, _ in grammar_counter.most_common(3)]
-
-    top_hard_segments = sorted(
-        predictions,
-        key=lambda item: (item["pred_score"], item["difficulty_confidence"], item["duration"]),
-        reverse=True,
-    )[:10]
+    predictions = _predict_grammar_only(cleaned_rows)
+    grammar_counter = Counter(item["grammar_tag"] for item in predictions)
+    dominant_grammar_tags = [tag for tag, _ in grammar_counter.most_common(5)]
 
     return {
         "source_name": source_name or ("uploaded_subtitle.vtt" if is_vtt else "uploaded_subtitle.srt"),
         "segment_count": len(predictions),
-        "movie_score": round(movie_score, 4),
-        "movie_level": _score_to_movie_level(movie_score),
-        "movie_cefr_range": _build_cefr_range(cefr_ratios),
-        "difficulty_ratios": difficulty_ratios,
-        "cefr_ratios": cefr_ratios,
         "dominant_grammar_tags": dominant_grammar_tags,
-        "top_hard_segments": top_hard_segments,
         "predicted_segments": predictions,
         "model_meta": {
-            "model_name": MODEL_NAME,
+            "model_name": "XLM-Roberta-Grammar-Only",
             "model_dir": load_movie_ai_bundle()["model_dir"],
-            "mode": "multitask_inference",
+            "mode": "grammar_classification_v2",
         },
     }
+
+
+def mark_video_ai_analysis_processing_service(video):
+    from ..extensions import db
+    from ..models.models_model import MovieAIAnalysis
+
+    analysis = MovieAIAnalysis.query.filter_by(video_id=video.id).first()
+    if not analysis:
+        analysis = MovieAIAnalysis(video_id=video.id)
+        db.session.add(analysis)
+
+    analysis.model_name = "XLM-Roberta-Grammar-Only"
+    analysis.model_mode = "grammar_classification_v2"
+    analysis.segment_count = 0
+    analysis.movie_score = 0.0
+    analysis.movie_level = "Grammar Optimized"
+    analysis.movie_cefr_range = ""
+    analysis.difficulty_ratios = {}
+    analysis.cefr_ratios = {}
+    analysis.dominant_grammar_tags = []
+    analysis.top_hard_segments = []
+    analysis.status = "PROCESSING"
+    analysis.error_message = None
+
+    db.session.commit()
+    return analysis
 
 
 def save_video_ai_analysis_service(video, subtitles) -> dict:
     from ..extensions import db
     from ..models.models_model import MovieAIAnalysis
 
+    # Thá»±c hiá»‡n phÃ¢n tÃ­ch ngá»¯ phÃ¡p vÃ  Ä‘á»¥c lá»—
+    mark_video_ai_analysis_processing_service(video)
     report = analyze_video_subtitles_service(video, subtitles)
 
     analysis = MovieAIAnalysis.query.filter_by(video_id=video.id).first()
@@ -405,21 +392,31 @@ def save_video_ai_analysis_service(video, subtitles) -> dict:
         analysis = MovieAIAnalysis(video_id=video.id)
         db.session.add(analysis)
 
-    analysis.model_name = report["model_meta"].get("model_name", MODEL_NAME)
-    analysis.model_mode = report["model_meta"].get("mode", "multitask_inference")
+    analysis.model_name = report["model_meta"].get("model_name", "XLM-Roberta-Grammar-Only")
+    analysis.model_mode = report["model_meta"].get("mode", "grammar_classification_v2")
     analysis.segment_count = int(report["segment_count"])
-    analysis.movie_score = float(report["movie_score"])
-    analysis.movie_level = report["movie_level"]
-    analysis.movie_cefr_range = report["movie_cefr_range"]
-    analysis.difficulty_ratios = report["difficulty_ratios"]
-    analysis.cefr_ratios = report["cefr_ratios"]
+    # Äáº·t cÃ¡c giÃ¡ trá»‹ cÅ© vá» 0 vÃ¬ model nÃ y khÃ´ng dá»± Ä‘oÃ¡n Ä‘á»™ khÃ³
+    analysis.movie_score = 0.0
+    analysis.movie_level = "Grammar Optimized"
+    analysis.movie_cefr_range = ""
+    analysis.difficulty_ratios = {}
+    analysis.cefr_ratios = {}
     analysis.dominant_grammar_tags = report["dominant_grammar_tags"]
-    analysis.top_hard_segments = report["top_hard_segments"][:10]
-    analysis.status = "READY"
+    analysis.top_hard_segments = []
+    analysis.status = "PROCESSING"
     analysis.error_message = None
 
     db.session.commit()
+
+    # [VTT_OPTIMIZATION] Export enriched VTT immediately after AI finishes
+    from .video_service import export_subtitle_to_vtt
+    export_subtitle_to_vtt(video.id)
+
+    analysis.status = "READY"
+    db.session.commit()
+
     return report
+
 def save_video_ai_analysis_failure_service(video, error_message: str):
     from ..extensions import db
     from ..models.models_model import MovieAIAnalysis
@@ -428,12 +425,12 @@ def save_video_ai_analysis_failure_service(video, error_message: str):
     if not analysis:
         analysis = MovieAIAnalysis(
             video_id=video.id,
-            model_name=MODEL_NAME,
-            model_mode="multitask_inference",
+            model_name="XLM-Roberta-Grammar-Only",
+            model_mode="grammar_classification_v2",
             segment_count=0,
             movie_score=0.0,
-            movie_level="Unknown",
-            movie_cefr_range="Unknown",
+            movie_level="FAILED",
+            movie_cefr_range="",
             difficulty_ratios={},
             cefr_ratios={},
         )

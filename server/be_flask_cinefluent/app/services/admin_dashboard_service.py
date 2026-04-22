@@ -94,7 +94,8 @@ def get_admin_dashboard_overview(days: int = 7, top: int = 5):
         Video.view_count,
         Video.status,
         Video.level,
-        MovieAIAnalysis.movie_cefr_range,
+        MovieAIAnalysis.status.label("ai_status"),
+        MovieAIAnalysis.movie_level.label("ai_label"),
         func.count(Subtitle.id).label("subtitle_count"),
         )
         .outerjoin(Subtitle, Subtitle.video_id == Video.id)
@@ -106,7 +107,8 @@ def get_admin_dashboard_overview(days: int = 7, top: int = 5):
             Video.view_count,
             Video.status,
             Video.level,
-            MovieAIAnalysis.movie_cefr_range,
+            MovieAIAnalysis.status,
+            MovieAIAnalysis.movie_level,
         )
         .order_by(Video.view_count.desc(), Video.id.desc())
         .limit(top)
@@ -120,7 +122,14 @@ def get_admin_dashboard_overview(days: int = 7, top: int = 5):
         "view_count": row.view_count or 0,
         "status": row.status,
         "level": row.level,
-        "cefr": row.movie_cefr_range,
+        "ai_status": row.ai_status,
+        "ai_label": (
+            "Processing"
+            if row.ai_status == "PROCESSING"
+            else "Failed"
+            if row.ai_status == "FAILED"
+            else row.ai_label
+        ),
         "subtitle_count": row.subtitle_count or 0,
     }
     for row in top_rows
@@ -163,7 +172,7 @@ def get_admin_dashboard_overview(days: int = 7, top: int = 5):
             {
                 "key": "videos_without_ai",
                 "level": "info",
-                "title": "Co phim chua phan tich do kho AI",
+                "title": "Co phim chua phan tich ngu phap AI",
                 "value": videos_without_ai,
             }
         )

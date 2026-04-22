@@ -72,6 +72,10 @@ export interface IAppendChatMessagePayload {
 export interface IAskAssistantPayload {
   content: string;
   client_state?: Record<string, unknown>;
+  history?: Array<{
+    role: TChatMessageRole;
+    content: string;
+  }>;
 }
 
 export interface IAskAssistantResponse {

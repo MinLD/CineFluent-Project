@@ -1,13 +1,16 @@
 from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from ..services.chat_orchestrator_service import (
+    send_chat_message_with_ai_service,
+    send_public_chat_message_with_ai_service,
+)
 from ..services.chat_service import (
     append_chat_message_service,
     create_chat_session_service,
     get_chat_session_messages_service,
     list_chat_sessions_service,
 )
-from ..services.chat_orchestrator_service import send_chat_message_with_ai_service
 from ..utils.response import error_response, success_response
 
 
@@ -31,7 +34,10 @@ def create_chat_session():
         title=title,
     )
     if not result.get("success"):
-        return error_response(message=result.get("error", "Không thể tạo phiên chat"), code=result.get("code", 500))
+        return error_response(
+            message=result.get("error", "Không thể tạo phiên chat"),
+            code=result.get("code", 500),
+        )
 
     return success_response(
         data=result.get("data"),
@@ -46,7 +52,10 @@ def list_chat_sessions():
     user_id = get_jwt_identity()
     result = list_chat_sessions_service(user_id)
     if not result.get("success"):
-        return error_response(message=result.get("error", "Không thể lấy danh sách phiên chat"), code=result.get("code", 500))
+        return error_response(
+            message=result.get("error", "Không thể lấy danh sách phiên chat"),
+            code=result.get("code", 500),
+        )
 
     return success_response(
         data=result.get("data"),
@@ -61,7 +70,10 @@ def get_chat_session_messages(session_id: int):
     user_id = get_jwt_identity()
     result = get_chat_session_messages_service(user_id, session_id)
     if not result.get("success"):
-        return error_response(message=result.get("error", "Không thể lấy tin nhắn"), code=result.get("code", 500))
+        return error_response(
+            message=result.get("error", "Không thể lấy tin nhắn"),
+            code=result.get("code", 500),
+        )
 
     return success_response(
         data=result.get("data"),
@@ -94,7 +106,10 @@ def append_chat_message(session_id: int):
         latency_ms=latency_ms,
     )
     if not result.get("success"):
-        return error_response(message=result.get("error", "Không thể thêm tin nhắn"), code=result.get("code", 500))
+        return error_response(
+            message=result.get("error", "Không thể thêm tin nhắn"),
+            code=result.get("code", 500),
+        )
 
     return success_response(
         data=result.get("data"),
@@ -117,6 +132,32 @@ def ask_chat_assistant(session_id: int):
         session_id=session_id,
         content=content,
         client_state=client_state,
+    )
+    if not result.get("success"):
+        return error_response(
+            message=result.get("error", "Không thể gửi câu hỏi cho trợ lý AI"),
+            code=result.get("code", 500),
+        )
+
+    return success_response(
+        data=result.get("data"),
+        message="Trợ lý AI phản hồi thành công",
+        code=201,
+    )
+
+
+@chat_bp.route("/public/ask", methods=["POST"])
+def ask_public_chat_assistant():
+    data = request.get_json() or {}
+
+    content = data.get("content")
+    client_state = data.get("client_state")
+    history = data.get("history")
+
+    result = send_public_chat_message_with_ai_service(
+        content=content,
+        client_state=client_state,
+        history=history,
     )
     if not result.get("success"):
         return error_response(

@@ -1,3 +1,5 @@
+from collections import Counter
+
 from marshmallow import Schema, fields, post_dump
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
@@ -108,6 +110,45 @@ class MovieAIAnalysisSchema(Schema):
     status = fields.Str()
     error_message = fields.Str(allow_none=True)
 
+
+class MovieAIAnalysisDetailSchema(MovieAIAnalysisSchema):
+    grammar_distribution = fields.Method("get_grammar_distribution")
+
+    def get_grammar_distribution(self, obj):
+        from ..models.models_model import GrammarTag, Subtitle
+
+        if not obj or not getattr(obj, "video", None):
+            return []
+
+        subtitles = (
+            Subtitle.query
+            .filter(
+                Subtitle.video_id == obj.video_id,
+                Subtitle.grammar_tag_id.isnot(None),
+            )
+            .all()
+        )
+
+        if not subtitles:
+            return []
+
+        tag_ids = [subtitle.grammar_tag_id for subtitle in subtitles if subtitle.grammar_tag_id is not None]
+        counts = Counter(tag_ids)
+        total = sum(counts.values())
+
+        grammar_tags = GrammarTag.query.filter(GrammarTag.id.in_(counts.keys())).all()
+        id_to_name = {tag.id: (tag.name_en or f"tag_{tag.id}") for tag in grammar_tags}
+
+        return [
+            {
+                "tag_id": tag_id,
+                "label": id_to_name.get(tag_id, f"tag_{tag_id}"),
+                "count": count,
+                "ratio": round(count / total, 4) if total else 0.0,
+            }
+            for tag_id, count in counts.most_common()
+        ]
+
 class VideoSchema(Schema):
     id = fields.Int()
     tmdb_id = fields.Int()
@@ -133,4 +174,4 @@ class VideoSchema(Schema):
     # subtitles = fields.List(fields.Nested(SubtitleSchema))
 
 class VideoDetailSchema(VideoSchema):
-    ai_analysis = fields.Nested(MovieAIAnalysisSchema, allow_none=True)
+    ai_analysis = fields.Nested(MovieAIAnalysisDetailSchema, allow_none=True)

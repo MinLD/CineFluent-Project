@@ -15,7 +15,7 @@ import {
   uploadSubtitlesAction,
 } from "@/app/lib/actions/videos";
 import { FeApiProxyUrl } from "@/app/lib/services/api_client";
-import { I_Video } from "@/app/lib/types/video";
+import { I_Video, I_Video_AI_Analysis } from "@/app/lib/types/video";
 
 import "react-loading-skeleton/dist/skeleton.css";
 
@@ -25,11 +25,33 @@ type Props = {
   video: I_Video;
 };
 
+function createProcessingAnalysis(
+  videoId: number,
+  segmentCount: number,
+): I_Video_AI_Analysis {
+  return {
+    video_id: videoId,
+    segment_count: segmentCount,
+    movie_score: 0,
+    movie_level: "Grammar Optimized",
+    movie_cefr_range: "",
+    difficulty_ratios: {},
+    cefr_ratios: {},
+    dominant_grammar_tags: [],
+    top_hard_segments: [],
+    status: "PROCESSING",
+    error_message: null,
+  };
+}
+
 export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
   const router = useRouter();
   const [subtitles, setSubtitles] = useState<any[]>([]);
   const [subtitleVttUrl, setSubtitleVttUrl] = useState<string | null>(
     video.subtitle_vtt_url || null,
+  );
+  const [analysisState, setAnalysisState] = useState<I_Video_AI_Analysis | null>(
+    video.ai_analysis ?? null,
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmittingSub, setIsSubmittingSub] = useState(false);
@@ -99,6 +121,46 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
   }, [video.id, video.subtitle_vtt_url]);
 
   useEffect(() => {
+    setAnalysisState(video.ai_analysis ?? null);
+  }, [video.id, video.ai_analysis]);
+
+  useEffect(() => {
+    if (analysisState?.status !== "PROCESSING") {
+      return;
+    }
+
+    let isMounted = true;
+
+    const fetchLatestVideo = async () => {
+      try {
+        const response = await fetch(`${FeApiProxyUrl}/videos/${video.id}`);
+        if (!response.ok) {
+          throw new Error("Không thể tải trạng thái AI mới nhất");
+        }
+
+        const payload = await response.json();
+        if (!isMounted) {
+          return;
+        }
+
+        const nextVideo = payload?.data as I_Video | undefined;
+        setAnalysisState(nextVideo?.ai_analysis ?? null);
+        setSubtitleVttUrl(nextVideo?.subtitle_vtt_url || null);
+      } catch (error) {
+        console.error("Failed to refresh subtitle AI status:", error);
+      }
+    };
+
+    fetchLatestVideo();
+    const intervalId = window.setInterval(fetchLatestVideo, 5000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, [analysisState?.status, video.id]);
+
+  useEffect(() => {
     fetchSubtitles(subtitleVttUrl);
   }, [video.id, subtitleVttUrl, token]);
 
@@ -140,14 +202,15 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
 
   const handleAnalyzeDifficulty = async () => {
     setIsAnalyzingAi(true);
-    const toastId = toast.loading("Dang phan tich do kho phim...");
+    const toastId = toast.loading("Đang phân tích ngữ pháp AI...");
 
     try {
       const res = await analyzeVideoDifficultyAction(Number(video.id));
       if (res.success) {
+        setAnalysisState(createProcessingAnalysis(video.id, subtitles.length));
         toast.success(
           res.message ||
-            "Da bat dau phan tich do kho phim. Vui long doi trong giay lat va refresh lai.",
+            "Đã bắt đầu phân tích ngữ pháp subtitle. Vui lòng đợi trong giây lát và refresh lại.",
           {
             id: toastId,
           },
@@ -159,12 +222,12 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
           router.refresh();
         }, 5000);
       } else {
-        toast.error(res.error || "Khong the phan tich do kho phim.", {
+        toast.error(res.error || "Không thể phân tích ngữ pháp subtitle.", {
           id: toastId,
         });
       }
     } catch {
-      toast.error("Co loi xay ra khi phan tich do kho phim.", { id: toastId });
+      toast.error("Có lỗi xảy ra khi phân tích ngữ pháp subtitle.", { id: toastId });
     } finally {
       setIsAnalyzingAi(false);
     }
@@ -324,7 +387,12 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
               <button
                 type="button"
                 onClick={handleAnalyzeDifficulty}
-                disabled={isSubmittingSub || isAnalyzingAi || subtitles.length === 0}
+                disabled={
+                  isSubmittingSub ||
+                  isAnalyzingAi ||
+                  subtitles.length === 0 ||
+                  analysisState?.status === "PROCESSING"
+                }
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isAnalyzingAi ? (
@@ -332,7 +400,7 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
                 ) : (
                   <>
                     <Sparkles size={18} />
-                    Phan tich do kho phim
+                    Phân tích ngữ pháp AI
                   </>
                 )}
               </button>
@@ -342,32 +410,41 @@ export default function AdminSubtitlesModal({ setClose, token, video }: Props) {
                   AI Movie Analysis
                 </p>
 
-                {video.ai_analysis ? (
-                  video.ai_analysis.status === "FAILED" ? (
+                {analysisState ? (
+                  analysisState.status === "FAILED" ? (
                     <div className="mt-2 space-y-2">
                       <span className="inline-flex items-center rounded-full border border-rose-200/40 bg-rose-500/20 px-2.5 py-1 text-xs font-semibold text-rose-50">
                         AI that bai
                       </span>
-                      {video.ai_analysis.error_message && (
+                      {analysisState.error_message && (
                         <p
                           className="text-xs leading-5 text-rose-100/90"
-                          title={video.ai_analysis.error_message}
+                          title={analysisState.error_message}
                         >
-                          {video.ai_analysis.error_message}
+                          {analysisState.error_message}
                         </p>
                       )}
                     </div>
+                  ) : analysisState.status === "PROCESSING" ? (
+                    <div className="mt-2 space-y-2">
+                      <span className="inline-flex items-center rounded-full border border-sky-200/40 bg-sky-500/20 px-2.5 py-1 text-xs font-semibold text-sky-50">
+                        AI đang phân tích
+                      </span>
+                      <p className="text-xs leading-5 text-indigo-100">
+                        Hệ thống đang cập nhật grammar metadata và sẽ tự kiểm tra lại mỗi 5 giây.
+                      </p>
+                    </div>
                   ) : (
                     <div className="mt-2 space-y-2">
-                      <MovieDifficultyBadge analysis={video.ai_analysis} />
+                      <MovieDifficultyBadge analysis={analysisState} />
                       <p className="text-xs leading-5 text-indigo-100">
-                        {video.ai_analysis.segment_count} subtitle da duoc phan tich.
+                        {analysisState.segment_count} subtitle đã được phân tích.
                       </p>
                     </div>
                   )
                 ) : (
                   <p className="mt-2 text-xs leading-5 text-indigo-100">
-                    Chua co ket qua AI. Bam nut phan tich de luu do kho phim vao he thong.
+                    Chưa có kết quả AI. Bấm nút phân tích để lưu dữ liệu grammar vào hệ thống.
                   </p>
                 )}
               </div>

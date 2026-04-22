@@ -345,7 +345,7 @@ export default function DashboardPage({ initialData }: Props) {
             </button>
             <button className="w-full text-left px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 flex items-center gap-2">
               <Wand2 className="w-4 h-4 text-fuchsia-600" />
-              Chạy phân tích độ khó AI
+              Chạy phân tích ngữ pháp AI
             </button>
             <button className="w-full text-left px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 text-amber-600" />
@@ -367,7 +367,7 @@ export default function DashboardPage({ initialData }: Props) {
                 <div>
                   <p className="font-medium text-slate-800">{v.title}</p>
                   <p className="text-xs text-slate-500">
-                    Phụ đề: {v.subtitle_count} | CEFR: {v.cefr || "N/A"} |{" "}
+                    Phụ đề: {v.subtitle_count} | AI: {v.ai_label || v.ai_status || "N/A"} |{" "}
                     {v.status}
                   </p>
                 </div>
@@ -410,7 +410,7 @@ export default function DashboardPage({ initialData }: Props) {
           title="Độ phủ AI (%)"
           value={`${aiCoverage}%`}
           icon={Sparkles}
-          description="Tỷ lệ phim đã được phân tích độ khó bằng AI."
+          description="Tỷ lệ phim đã được phân tích ngữ pháp bằng AI."
         />
         <StatCard
           title="Độ phủ phụ đề (%)"

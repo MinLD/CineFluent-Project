@@ -58,3 +58,9 @@ export const Api_Ask_Chat_Assistant = (
     },
   });
 };
+
+export const Api_Ask_Public_Chat_Assistant = (
+  payload?: IAskAssistantPayload,
+) => {
+  return axiosClient.post("/chat/public/ask", payload);
+};

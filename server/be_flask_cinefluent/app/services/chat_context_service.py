@@ -267,11 +267,10 @@ def build_movie_context_service(
         if watch_history
         else None,
         "movie_analysis": {
-            "movie_score": ai_analysis.movie_score,
+            "status": ai_analysis.status,
             "movie_level": ai_analysis.movie_level,
-            "movie_cefr_range": ai_analysis.movie_cefr_range,
+            "segment_count": ai_analysis.segment_count,
             "dominant_grammar_tags": ai_analysis.dominant_grammar_tags or [],
-            "top_hard_segments": (ai_analysis.top_hard_segments or [])[:3],
         }
         if ai_analysis
         else None,

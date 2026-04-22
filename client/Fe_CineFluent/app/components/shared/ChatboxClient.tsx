@@ -2,13 +2,15 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Bot, MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { Bot, Send, X } from "lucide-react";
 
 import {
   askChatAssistantAction,
+  askPublicChatAssistantAction,
   createChatSessionAction,
   getChatSessionMessagesAction,
   getChatSessionsAction,
+  hasChatAccessTokenAction,
 } from "@/app/lib/actions/chat";
 import {
   IChatMessage,
@@ -36,6 +38,10 @@ export default function ChatboxClient({
   const [input, setInput] = useState("");
   const [isPending, startTransition] = useTransition();
   const [booting, setBooting] = useState(false);
+  const [isGuestGeneralChat, setIsGuestGeneralChat] = useState(false);
+
+  const isGeneralContext = contextType === "general";
+  const canUseGuestGeneralChat = isGeneralContext && isGuestGeneralChat;
 
   const sessionTitle = useMemo(() => {
     if (contextType === "movie") return "Chat học qua phim";
@@ -46,9 +52,33 @@ export default function ChatboxClient({
     return "Chat hỗ trợ chung";
   }, [contextType]);
 
+  const subtitleText = useMemo(() => {
+    if (canUseGuestGeneralChat) {
+      return "Chat chung dùng Product-RAG nội bộ, không cần đăng nhập.";
+    }
+    if (contextType === "movie") return "Hỏi về subtitle, ngữ pháp và đoạn phim đang xem.";
+    if (contextType === "flashcard") return "Hỏi về bộ flashcard và cách ôn tập hiệu quả.";
+    if (contextType === "roadmap") return "Hỏi về roadmap, tiến độ học và bước tiếp theo.";
+    if (contextType === "typing_game") return "Hỏi về map, stage và phần luyện gõ hiện tại.";
+    if (contextType === "realtime_practice") return "Hỏi về chủ đề và nội dung luyện tập realtime.";
+    return "Hỏi về tính năng CineFluent, cách học và tài liệu nội bộ.";
+  }, [canUseGuestGeneralChat, contextType]);
+
   async function bootstrapChat() {
     setBooting(true);
     try {
+      const hasToken = await hasChatAccessTokenAction();
+      if (!hasToken) {
+        setSessions([]);
+        setActiveSession(null);
+        setIsGuestGeneralChat(isGeneralContext);
+        if (!isGeneralContext) {
+          setMessages([]);
+        }
+        return;
+      }
+
+      setIsGuestGeneralChat(false);
       const sessionList = await getChatSessionsAction();
       setSessions(sessionList);
 
@@ -76,7 +106,16 @@ export default function ChatboxClient({
         setActiveSession(created);
         setSessions((prev) => [created, ...prev]);
         setMessages([]);
+        return;
       }
+
+      setActiveSession(null);
+      if (isGeneralContext) {
+        setIsGuestGeneralChat(true);
+        return;
+      }
+
+      setMessages([]);
     } finally {
       setBooting(false);
     }
@@ -89,12 +128,13 @@ export default function ChatboxClient({
 
   async function handleSend() {
     const content = input.trim();
-    if (!content || !activeSession) return;
+    const shouldUseGuestGeneralChat = canUseGuestGeneralChat;
+    if (!content || (!activeSession && !shouldUseGuestGeneralChat)) return;
 
     const optimisticUserMessage: IChatMessage = {
       id: Date.now(),
-      session_id: activeSession.id,
-      user_id: "me",
+      session_id: activeSession?.id ?? 0,
+      user_id: shouldUseGuestGeneralChat ? "guest" : "me",
       role: "user",
       content,
       context_used: null,
@@ -108,10 +148,27 @@ export default function ChatboxClient({
     setInput("");
 
     startTransition(async () => {
-      const result = await askChatAssistantAction(activeSession.id, {
-        content,
-        client_state: clientState,
-      });
+      const history = messages
+        .slice(-6)
+        .map((message) => ({
+          role: message.role,
+          content: message.content,
+        }));
+
+      const result = shouldUseGuestGeneralChat
+        ? await askPublicChatAssistantAction({
+            content,
+            client_state: clientState,
+            history,
+          })
+        : await askChatAssistantAction(activeSession!.id, {
+            content,
+            client_state: clientState,
+          });
+
+      const persistedUserMessage = result.user_message.content.trim()
+        ? result.user_message
+        : optimisticUserMessage;
 
       setMessages((prev) => {
         const withoutOptimistic = prev.filter(
@@ -119,18 +176,23 @@ export default function ChatboxClient({
         );
         return [
           ...withoutOptimistic,
-          result.user_message,
+          persistedUserMessage,
           result.assistant_message,
         ];
       });
     });
   }
 
+  const canSend =
+    !isPending &&
+    Boolean(input.trim()) &&
+    (Boolean(activeSession) || canUseGuestGeneralChat);
+
   return (
     <>
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="fixed bottom-5 right-4 z-[70] flex h-16 w-16 items-center justify-center  text-white  transition-all hover:scale-[1.03] md:bottom-6 md:right-6"
+        className="fixed bottom-5 right-4 z-[70] flex h-16 w-16 items-center justify-center text-white transition-all hover:scale-[1.03] md:bottom-6 md:right-6"
         aria-label={open ? "Đóng chatbox AI" : "Mở chatbox AI"}
       >
         {open ? (
@@ -171,14 +233,14 @@ export default function ChatboxClient({
                       {title}
                     </h3>
                     <span className="rounded-full border border-emerald-300/25 bg-emerald-400/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200">
-                      Sẵn sàng
+                      {canUseGuestGeneralChat ? "Khách" : "Sẵn sàng"}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-slate-300/90">
                     {sessionTitle}
                   </p>
                   <p className="mt-1 text-[11px] text-slate-400">
-                    Hỏi về phim, từ vựng, roadmap hoặc tính năng CineFluent.
+                    {subtitleText}
                   </p>
                 </div>
               </div>
@@ -188,7 +250,7 @@ export default function ChatboxClient({
           <div className="flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,_rgba(15,23,42,0.2),_rgba(2,6,23,0.38))] px-4 py-4 md:px-5">
             {booting ? (
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-300">
-                Đang tải phiên chat...
+                Đang chuẩn bị phiên chat...
               </div>
             ) : messages.length === 0 ? (
               <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 text-slate-200">
@@ -201,18 +263,26 @@ export default function ChatboxClient({
                       Bắt đầu với CineFluent AI
                     </p>
                     <p className="text-xs text-slate-400">
-                      Trợ lý sẽ bám ngữ cảnh học tập hiện tại của bạn để trả lời
-                      sát hơn.
+                      {canUseGuestGeneralChat
+                        ? "Bạn đang ở chế độ chat chung, chỉ dùng tài liệu nội bộ của CineFluent."
+                        : "Trợ lý sẽ bám vào ngữ cảnh học tập hiện tại của bạn để trả lời sát hơn."}
                     </p>
                   </div>
                 </div>
 
                 <div className="grid gap-2 text-sm">
-                  {[
-                    "Giải thích subtitle hiện tại theo ngữ cảnh",
-                    "Gợi ý nên ôn từ nào trước",
-                    "Hôm nay tôi nên học gì trong roadmap",
-                  ].map((item) => (
+                  {(canUseGuestGeneralChat
+                    ? [
+                        "CineFluent hiện có những tính năng học nào?",
+                        "Hệ thống học qua phim hoạt động ra sao?",
+                        "Quiz ngữ pháp và DKT dùng để làm gì?",
+                      ]
+                    : [
+                        "Giải thích subtitle hiện tại theo ngữ cảnh",
+                        "Gợi ý nên ôn từ nào trước",
+                        "Hôm nay tôi nên học gì trong roadmap",
+                      ]
+                  ).map((item) => (
                     <div
                       key={item}
                       className="rounded-2xl border border-white/8 bg-slate-900/70 px-3 py-2.5 text-slate-300"
@@ -279,7 +349,7 @@ export default function ChatboxClient({
                 />
                 <button
                   onClick={handleSend}
-                  disabled={isPending || !input.trim() || !activeSession}
+                  disabled={!canSend}
                   className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 text-white shadow-[0_12px_30px_rgba(59,130,246,0.35)] transition-transform hover:scale-[1.03] disabled:cursor-not-allowed disabled:bg-slate-600 disabled:shadow-none"
                 >
                   <Send size={18} />
@@ -290,9 +360,11 @@ export default function ChatboxClient({
                 <span>
                   {isPending
                     ? "AI đang suy nghĩ..."
+                    : canUseGuestGeneralChat
+                    ? "Chat chung không cần đăng nhập"
                     : "Phản hồi theo ngữ cảnh CineFluent"}
                 </span>
-                <span>{sessions.length} phiên</span>
+                <span>{canUseGuestGeneralChat ? "Phiên tạm" : `${sessions.length} phiên`}</span>
               </div>
             </div>
           </div>
