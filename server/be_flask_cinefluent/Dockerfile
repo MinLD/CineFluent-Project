@@ -18,6 +18,9 @@ COPY requirements.txt .
 # Cài đặt các thư viện Python từ requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Tải mô hình ngôn ngữ spaCy
+RUN python -m spacy download en_core_web_sm
+
 # Copy toàn bộ mã nguồn vào container
 COPY . .
 
