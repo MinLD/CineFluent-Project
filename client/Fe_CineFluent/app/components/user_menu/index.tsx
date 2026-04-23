@@ -6,7 +6,14 @@ import axios from "axios";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { BookOpen, Crown, LogOut, TreeDeciduousIcon, User } from "lucide-react";
+import {
+  BookOpen,
+  Crown,
+  LogOut,
+  TreeDeciduousIcon,
+  User,
+  UsersRound,
+} from "lucide-react";
 
 import { FeApiProxyUrl } from "@/app/lib/services/api_client";
 import { Ty_User } from "@/app/lib/types/users";
@@ -127,6 +134,12 @@ export default function UserMenu({ user }: { user: Ty_User }) {
                 href="/studies/roadmap"
                 icon={<TreeDeciduousIcon size={18} />}
                 label="Tiến trình học tập"
+                onClick={() => setIsOpen(false)}
+              />
+              <MenuItem
+                href="/studies/classrooms"
+                icon={<UsersRound size={18} />}
+                label="Lớp học"
                 onClick={() => setIsOpen(false)}
               />
               <MenuItem

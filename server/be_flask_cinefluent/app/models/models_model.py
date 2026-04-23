@@ -46,6 +46,10 @@ class User(db.Model):
     knowledge_state = db.relationship('UserKnowledgeState', uselist=False, back_populates='user', cascade='all, delete-orphan')
     tag_masteries = db.relationship('UserTagMastery', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     discovered_tags = db.relationship('UserDiscoveredTag', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
+    created_classrooms = db.relationship('Classroom', back_populates='teacher', lazy='dynamic', cascade='all, delete-orphan')
+    classroom_memberships = db.relationship('ClassroomMember', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
+    class_session_assignments = db.relationship('ClassSessionAssignment', back_populates='creator', lazy='dynamic', cascade='all, delete-orphan')
+    class_session_assignment_submissions = db.relationship('ClassSessionAssignmentSubmission', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     
     def set_password(self, password):
         self.password = generate_password_hash(password)
@@ -355,6 +359,147 @@ class GrammarReviewAttempt(db.Model):
 
     user = db.relationship('User', back_populates='grammar_review_attempts')
     review_exercise = db.relationship('GrammarReviewExercise', back_populates='attempts')
+
+
+class Classroom(db.Model):
+    __tablename__ = 'classrooms'
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    invite_code = db.Column(db.String(16), nullable=False, unique=True, index=True)
+    status = db.Column(db.Enum('ACTIVE', 'ARCHIVED'), default='ACTIVE', nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    teacher = db.relationship('User', back_populates='created_classrooms')
+    members = db.relationship('ClassroomMember', back_populates='classroom', lazy='dynamic', cascade='all, delete-orphan')
+    sessions = db.relationship('ClassSession', back_populates='classroom', lazy='dynamic', cascade='all, delete-orphan')
+    homework_assignments = db.relationship('ClassSessionAssignment', back_populates='classroom', lazy='dynamic', cascade='all, delete-orphan')
+
+
+class ClassroomMember(db.Model):
+    __tablename__ = 'classroom_members'
+
+    id = db.Column(db.Integer, primary_key=True)
+    classroom_id = db.Column(db.Integer, db.ForeignKey('classrooms.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    role = db.Column(db.Enum('teacher', 'student'), default='student', nullable=False, index=True)
+    joined_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('classroom_id', 'user_id', name='uq_classroom_member'),)
+
+    classroom = db.relationship('Classroom', back_populates='members')
+    user = db.relationship('User', back_populates='classroom_memberships')
+
+
+class ClassSession(db.Model):
+    __tablename__ = 'class_sessions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    classroom_id = db.Column(db.Integer, db.ForeignKey('classrooms.id', ondelete='CASCADE'), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    scheduled_at = db.Column(db.DateTime, nullable=True, index=True)
+    grammar_focus = db.Column(db.JSON, nullable=True)
+    teacher_notes = db.Column(db.Text, nullable=True)
+    status = db.Column(db.Enum('PLANNED', 'COMPLETED', 'CANCELLED'), default='PLANNED', nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    classroom = db.relationship('Classroom', back_populates='sessions')
+    recordings = db.relationship('ClassSessionRecording', back_populates='session', lazy='dynamic', cascade='all, delete-orphan')
+    recap = db.relationship('ClassSessionRecap', back_populates='session', uselist=False, cascade='all, delete-orphan')
+
+
+class ClassSessionRecording(db.Model):
+    __tablename__ = 'class_session_recordings'
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('class_sessions.id', ondelete='CASCADE'), nullable=False, index=True)
+    uploaded_by = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    file_path = db.Column(db.String(500), nullable=False)
+    mime_type = db.Column(db.String(100), nullable=False, default='audio/webm')
+    file_size = db.Column(db.Integer, nullable=True)
+    duration_seconds = db.Column(db.Float, nullable=True)
+    status = db.Column(db.Enum('UPLOADED', 'PROCESSED', 'FAILED'), default='UPLOADED', nullable=False, index=True)
+    error_message = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    session = db.relationship('ClassSession', back_populates='recordings')
+
+
+class ClassSessionRecap(db.Model):
+    __tablename__ = 'class_session_recaps'
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('class_sessions.id', ondelete='CASCADE'), nullable=False, unique=True, index=True)
+    recording_id = db.Column(db.Integer, db.ForeignKey('class_session_recordings.id', ondelete='SET NULL'), nullable=True, index=True)
+    summary_text = db.Column(db.Text, nullable=False)
+    key_points = db.Column(db.JSON, nullable=True)
+    examples = db.Column(db.JSON, nullable=True)
+    homework_text = db.Column(db.Text, nullable=True)
+    review_suggestions = db.Column(db.JSON, nullable=True)
+    transcript_text = db.Column(db.Text, nullable=True)
+    model_name = db.Column(db.String(100), nullable=False, default='gemini-2.5-flash')
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    session = db.relationship('ClassSession', back_populates='recap')
+
+
+class ClassSessionAssignment(db.Model):
+    __tablename__ = 'class_session_assignments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    classroom_id = db.Column(db.Integer, db.ForeignKey('classrooms.id', ondelete='CASCADE'), nullable=False, index=True)
+    created_by = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    source_video_id = db.Column(db.Integer, db.ForeignKey('videos.id', ondelete='SET NULL'), nullable=True, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    instructions = db.Column(db.Text, nullable=True)
+    grammar_focus = db.Column(db.JSON, nullable=True)
+    question_count = db.Column(db.Integer, nullable=False, default=5)
+    quiz_data = db.Column(db.JSON, nullable=False)
+    status = db.Column(db.Enum('ACTIVE', 'CLOSED'), default='ACTIVE', nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    classroom = db.relationship('Classroom', back_populates='homework_assignments')
+    creator = db.relationship('User', back_populates='class_session_assignments')
+    source_video = db.relationship('Video')
+    submissions = db.relationship(
+        'ClassSessionAssignmentSubmission',
+        back_populates='assignment',
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+    )
+
+
+class ClassSessionAssignmentSubmission(db.Model):
+    __tablename__ = 'class_session_assignment_submissions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    assignment_id = db.Column(db.Integer, db.ForeignKey('class_session_assignments.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    answers = db.Column(db.JSON, nullable=True)
+    result_json = db.Column(db.JSON, nullable=True)
+    score = db.Column(db.Float, nullable=True)
+    total_questions = db.Column(db.Integer, nullable=False, default=0)
+    correct_answers = db.Column(db.Integer, nullable=True)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('assignment_id', 'user_id', name='uq_class_assignment_submission'),
+    )
+
+    assignment = db.relationship('ClassSessionAssignment', back_populates='submissions')
+    user = db.relationship('User', back_populates='class_session_assignment_submissions')
 
 
 class TypingGameMap(db.Model):
