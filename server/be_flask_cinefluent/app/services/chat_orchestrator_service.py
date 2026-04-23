@@ -21,7 +21,15 @@ CHAT_MODEL_NAME = "gemini-2.5-flash"
 
 
 def _get_repo_root() -> Path:
-    return Path(__file__).resolve().parents[4]
+    # Trong Docker, đường dẫn thường là /app/app/services/... (tổng cộng 3 cấp cha để lên /app)
+    # Trên máy cá nhân có thể sâu hơn. Ta dùng try-except để tự thích nghi.
+    current = Path(__file__).resolve()
+    try:
+        # Thử lấy cấp 4 (dành cho local)
+        return current.parents[4]
+    except IndexError:
+        # Nếu không có cấp 4 (như trong Docker), lấy cấp gốc của dự án (thường là parents[2])
+        return current.parents[2]
 
 
 def _load_vector_store(settings: ProductRagSettings):
