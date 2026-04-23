@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..models.models_model import db, UserKnowledgeState, UserTagMastery
+from ..services.learning_tree_service import discover_learning_tag_service
 from ..services.kt_inference_service import dkt_engine
 from ..utils.response import success_response, error_response
 from datetime import datetime
@@ -83,6 +84,8 @@ def update_state():
         
     tag_id = int(data['tag_id'])
     is_correct = int(data['is_correct'])
+
+    discover_learning_tag_service(user_id=user_id, tag_id=tag_id, source='quiz')
     
     # --- BƯỚC 1: XỬ LÝ TRÍ NHỚ MÔ HÌNH AI (DKT HISTORY) ---
     knowledge_state = UserKnowledgeState.query.filter_by(user_id=user_id).first()

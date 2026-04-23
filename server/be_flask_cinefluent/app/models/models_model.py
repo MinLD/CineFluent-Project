@@ -37,6 +37,7 @@ class User(db.Model):
     movie_requests = db.relationship('MovieRequest', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     flashcards = db.relationship('Flashcard', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     flashcard_exercises = db.relationship('FlashcardExercise', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
+    grammar_review_attempts = db.relationship('GrammarReviewAttempt', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     watch_history = db.relationship('WatchHistory', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     study_roadmaps = db.relationship('StudyRoadmap', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     ai_assessments = db.relationship('AIAssessment', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
@@ -44,6 +45,7 @@ class User(db.Model):
     chat_messages = db.relationship('ChatMessage', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     knowledge_state = db.relationship('UserKnowledgeState', uselist=False, back_populates='user', cascade='all, delete-orphan')
     tag_masteries = db.relationship('UserTagMastery', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
+    discovered_tags = db.relationship('UserDiscoveredTag', back_populates='user', lazy='dynamic', cascade='all, delete-orphan')
     
     def set_password(self, password):
         self.password = generate_password_hash(password)
@@ -106,6 +108,23 @@ class UserTagMastery(db.Model):
     user = db.relationship('User', back_populates='tag_masteries')
     grammar_tag = db.relationship('GrammarTag', back_populates='user_masteries')
 
+class UserDiscoveredTag(db.Model):
+    __tablename__ = 'user_discovered_tags'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    tag_id = db.Column(db.Integer, db.ForeignKey('grammar_tags.id', ondelete='CASCADE'), nullable=False, index=True)
+    source = db.Column(db.String(50), nullable=False, default='movie')
+    encounter_count = db.Column(db.Integer, nullable=False, default=1)
+    discovered_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'tag_id', name='uq_user_discovered_tag'),)
+
+    user = db.relationship('User', back_populates='discovered_tags')
+    grammar_tag = db.relationship('GrammarTag', back_populates='discovered_by_users')
+
 class TokenBlocklist(db.Model):
     __tablename__ = 'token_blocklist'
     id = db.Column(db.Integer, primary_key=True)
@@ -161,6 +180,17 @@ class Video(db.Model):
     flashcards = db.relationship('Flashcard', back_populates='video', lazy='dynamic', cascade='all, delete-orphan')
     watch_history = db.relationship('WatchHistory', back_populates='video', lazy='dynamic', cascade='all, delete-orphan')
     ai_analysis = db.relationship('MovieAIAnalysis', back_populates='video', uselist=False, cascade='all, delete-orphan')
+
+class GrammarBranch(db.Model):
+    __tablename__ = 'grammar_branches'
+    id = db.Column(db.Integer, primary_key=True)
+    name_en = db.Column(db.String(100), nullable=False, unique=True, index=True)
+    name_vi = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    display_order = db.Column(db.Integer, nullable=False, default=0)
+
+    tags = db.relationship('GrammarTag', back_populates='branch', lazy='dynamic')
+
 # Bảng từ điển các Thẻ Ngữ Pháp (Dùng cho AI DKT và Tooltip Frontend)
 class GrammarTag(db.Model):
     __tablename__ = 'grammar_tags'
@@ -168,10 +198,15 @@ class GrammarTag(db.Model):
     name_en = db.Column(db.String(100), nullable=False, index=True) # VD: present_simple
     name_vi = db.Column(db.String(255), nullable=True) # VD: Thì Hiện tại đơn
     description = db.Column(db.Text, nullable=True) # Giải thích quy tắc ngữ pháp
+    branch_id = db.Column(db.Integer, db.ForeignKey('grammar_branches.id'), nullable=True, index=True)
     
     # Quan hệ
+    branch = db.relationship('GrammarBranch', back_populates='tags')
     subtitles = db.relationship('Subtitle', back_populates='grammar_tag', lazy='dynamic')
     user_masteries = db.relationship('UserTagMastery', back_populates='grammar_tag', lazy='dynamic')
+    discovered_by_users = db.relationship('UserDiscoveredTag', back_populates='grammar_tag', lazy='dynamic')
+    lessons = db.relationship('GrammarLesson', back_populates='grammar_tag', lazy='dynamic', cascade='all, delete-orphan')
+    review_exercises = db.relationship('GrammarReviewExercise', back_populates='grammar_tag', lazy='dynamic', cascade='all, delete-orphan')
 
 class Subtitle(db.Model):
     __tablename__ = 'subtitles'
@@ -268,6 +303,58 @@ class FlashcardExercise(db.Model):
     
     user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     user = db.relationship('User', back_populates='flashcard_exercises')
+
+
+class GrammarLesson(db.Model):
+    __tablename__ = 'grammar_lessons'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tag_id = db.Column(db.Integer, db.ForeignKey('grammar_tags.id', ondelete='CASCADE'), nullable=False, unique=True, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    content_json = db.Column(db.JSON, nullable=False)
+    model_name = db.Column(db.String(100), nullable=False, default='gemini-2.5-flash')
+    version = db.Column(db.Integer, nullable=False, default=1)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    grammar_tag = db.relationship('GrammarTag', back_populates='lessons')
+
+
+class GrammarReviewExercise(db.Model):
+    __tablename__ = 'grammar_review_exercises'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tag_id = db.Column(db.Integer, db.ForeignKey('grammar_tags.id', ondelete='CASCADE'), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    question_count = db.Column(db.Integer, nullable=False, default=5)
+    quiz_data = db.Column(db.JSON, nullable=False)
+    model_name = db.Column(db.String(100), nullable=False, default='gemini-2.5-flash')
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    grammar_tag = db.relationship('GrammarTag', back_populates='review_exercises')
+    attempts = db.relationship('GrammarReviewAttempt', back_populates='review_exercise', lazy='dynamic', cascade='all, delete-orphan')
+
+
+class GrammarReviewAttempt(db.Model):
+    __tablename__ = 'grammar_review_attempts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    review_exercise_id = db.Column(db.Integer, db.ForeignKey('grammar_review_exercises.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_answers = db.Column(db.JSON, nullable=True)
+    result_json = db.Column(db.JSON, nullable=True)
+    score = db.Column(db.Float, nullable=True)
+    total_questions = db.Column(db.Integer, nullable=False, default=0)
+    correct_answers = db.Column(db.Integer, nullable=True)
+    status = db.Column(db.Enum('PENDING', 'COMPLETED'), default='PENDING', nullable=False, index=True)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', back_populates='grammar_review_attempts')
+    review_exercise = db.relationship('GrammarReviewExercise', back_populates='attempts')
 
 
 class TypingGameMap(db.Model):

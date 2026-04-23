@@ -1,43 +1,35 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import {
-  User,
-  LogOut,
-  Settings,
-  CreditCard,
-  BookOpen,
-  ChevronDown,
-  Sparkles,
-  Crown,
-} from "lucide-react";
-import { Ty_User } from "@/app/lib/types/users";
-import { AnimatePresence, motion } from "framer-motion";
+import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
+import Link from "next/link";
+import { BookOpen, Crown, LogOut, TreeDeciduousIcon, User } from "lucide-react";
+
 import { FeApiProxyUrl } from "@/app/lib/services/api_client";
+import { Ty_User } from "@/app/lib/types/users";
 
 export default function UserMenu({ user }: { user: Ty_User }) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Logic: Click ra ngoài thì tự đóng menu
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     }
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Hàm lấy chữ cái đầu để làm Avatar mặc định nếu không có ảnh
   const getInitials = (name: string) => {
     return name
       .split(" ")
-      .map((n) => n[0])
+      .map((part) => part[0])
       .join("")
       .toUpperCase()
       .slice(0, 2);
@@ -46,22 +38,22 @@ export default function UserMenu({ user }: { user: Ty_User }) {
   return (
     <div className="relative z-10" ref={menuRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="group flex items-center gap-3 pl-2 pr-1 py-1 rounded-full transition-all duration-300 hover:bg-gray-100 dark:hover:bg-zinc-800 outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+        onClick={() => setIsOpen((current) => !current)}
+        className="group flex items-center gap-3 rounded-full py-1 pl-2 pr-1 outline-none transition-all duration-300 hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500/50 dark:hover:bg-zinc-800"
       >
-        <div className="text-right hidden lg:block">
-          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors max-w-[150px] truncate">
+        <div className="hidden text-right lg:block">
+          <p className="max-w-[150px] truncate text-sm font-semibold leading-tight text-gray-700 transition-colors group-hover:text-blue-600 dark:text-gray-200 dark:group-hover:text-blue-400">
             {user.profile.fullname}
           </p>
           <div className="flex items-center justify-end gap-1">
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-100 dark:border-blue-800/50">
+            <span className="rounded-full border border-blue-100 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:border-blue-800/50 dark:bg-blue-900/30 dark:text-blue-300">
               {user.profile.total_points} PTS
             </span>
           </div>
         </div>
 
         <div className="relative">
-          <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-white dark:border-zinc-900 shadow-sm group-hover:shadow-md transition-all duration-300 ring-1 ring-gray-200 dark:ring-gray-700">
+          <div className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-white shadow-sm ring-1 ring-gray-200 transition-all duration-300 group-hover:shadow-md dark:border-zinc-900 dark:ring-gray-700">
             {user.profile.avatar_url ? (
               <Image
                 src={user.profile.avatar_url}
@@ -70,57 +62,55 @@ export default function UserMenu({ user }: { user: Ty_User }) {
                 className="object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
+              <div className="flex h-full w-full items-center justify-center bg-blue-600 text-sm font-bold text-white">
                 {getInitials(user.profile.fullname)}
               </div>
             )}
           </div>
-          <div className="absolute -bottom-0.5 -right-0.5 bg-white dark:bg-zinc-900 rounded-full p-0.5">
-            <div className="w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-zinc-900"></div>
+          <div className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-0.5 dark:bg-zinc-900">
+            <div className="h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500 dark:border-zinc-900" />
           </div>
         </div>
       </button>
 
       <AnimatePresence>
-        {isOpen && (
+        {isOpen ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="z-80 absolute right-0 mt-3 w-72 bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-gray-100 dark:border-zinc-800 overflow-hidden ring-1 ring-black/5"
+            className="absolute right-0 z-80 mt-3 w-72 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl ring-1 ring-black/5 dark:border-zinc-800 dark:bg-zinc-900"
           >
-            {/* Header của Menu */}
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border-b border-dashed border-gray-200 dark:border-zinc-800/50">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white dark:border-zinc-800 shadow-sm shrink-0">
+            <div className="border-b border-dashed border-gray-200 bg-blue-50 p-4 dark:border-zinc-800/50 dark:bg-blue-900/10">
+              <div className="mb-3 flex items-center gap-3">
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white shadow-sm dark:border-zinc-800">
                   {user.profile.avatar_url ? (
                     <Image
                       src={user.profile.avatar_url}
                       alt={user.profile.fullname}
                       width={48}
                       height={48}
-                      className="object-cover w-full h-full"
+                      className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-blue-600 flex items-center justify-center text-white font-bold">
+                    <div className="flex h-full w-full items-center justify-center bg-blue-600 font-bold text-white">
                       {getInitials(user.profile.fullname)}
                     </div>
                   )}
                 </div>
                 <div className="overflow-hidden">
-                  <p className="text-base font-bold text-gray-900 dark:text-white truncate">
+                  <p className="truncate text-base font-bold text-gray-900 dark:text-white">
                     {user.profile.fullname}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate font-medium">
+                  <p className="truncate text-xs font-medium text-gray-500 dark:text-gray-400">
                     {user.email}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Nhóm chức năng chính */}
-            <div className="p-2 space-y-0.5">
+            <div className="space-y-0.5 p-2">
               <MenuItem
                 href="/settings/profile"
                 icon={<Crown size={18} />}
@@ -135,8 +125,8 @@ export default function UserMenu({ user }: { user: Ty_User }) {
               />
               <MenuItem
                 href="/studies/roadmap"
-                icon={<Sparkles size={18} />}
-                label="Lộ trình của tôi"
+                icon={<TreeDeciduousIcon size={18} />}
+                label="Tiến trình học tập"
                 onClick={() => setIsOpen(false)}
               />
               <MenuItem
@@ -147,56 +137,66 @@ export default function UserMenu({ user }: { user: Ty_User }) {
               />
             </div>
 
-            <div className="h-px bg-gray-100 dark:bg-zinc-800 mx-2 my-1"></div>
+            <div className="mx-2 my-1 h-px bg-gray-100 dark:bg-zinc-800" />
 
-            {/* Nhóm cài đặt & Logout */}
-            <div className="p-2 pt-0 space-y-0.5">
+            <div className="space-y-0.5 p-2 pt-0">
               <button
                 onClick={async () => {
                   try {
                     await axios.post(`${FeApiProxyUrl}/auth/logout`);
-                    window.location.href = "/"; // Force reload to clear state
+                    window.location.href = "/";
                   } catch (error) {
                     console.error("Logout failed", error);
-                    window.location.href = "/"; // Redirect anyway
+                    window.location.href = "/";
                   }
                 }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-all duration-200 group"
+                className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition-all duration-200 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/10"
               >
-                <div className="p-1.5 bg-red-100/50 dark:bg-red-900/20 text-red-500 dark:text-red-400 rounded-lg group-hover:bg-red-500 group-hover:text-white transition-colors">
+                <div className="rounded-lg bg-red-100/50 p-1.5 text-red-500 transition-colors group-hover:bg-red-500 group-hover:text-white dark:bg-red-900/20 dark:text-red-400">
                   <LogOut size={16} />
                 </div>
                 <span>Đăng xuất</span>
               </button>
             </div>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   );
 }
 
-// Component con cho từng dòng menu để code gọn hơn
-function MenuItem({ href, icon, label, badge, onClick }: any) {
+function MenuItem({
+  href,
+  icon,
+  label,
+  badge,
+  onClick,
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+  badge?: string;
+  onClick?: () => void;
+}) {
   return (
     <Link
       href={href}
       onClick={onClick}
-      className="flex items-center justify-between px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded-xl transition-all duration-200 group"
+      className="group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition-all duration-200 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-zinc-800"
     >
       <div className="flex items-center gap-3">
-        <div className="p-1.5 bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200 shadow-sm group-hover:shadow-blue-200 dark:group-hover:shadow-none">
+        <div className="rounded-lg bg-gray-100 p-1.5 text-gray-500 shadow-sm transition-colors duration-200 group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-blue-200 dark:bg-zinc-800 dark:text-gray-400 dark:group-hover:shadow-none">
           {icon}
         </div>
-        <span className="group-hover:translate-x-0.5 transition-transform duration-200">
+        <span className="transition-transform duration-200 group-hover:translate-x-0.5">
           {label}
         </span>
       </div>
-      {badge && (
-        <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800/50">
+      {badge ? (
+        <span className="rounded-full border border-blue-200 bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:border-blue-800/50 dark:bg-blue-900/40 dark:text-blue-300">
           {badge}
         </span>
-      )}
+      ) : null}
     </Link>
   );
 }
