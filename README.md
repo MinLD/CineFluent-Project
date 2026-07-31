@@ -1,136 +1,100 @@
-CineFluent
+<div align="center">
+  <img src="./client/Fe_CineFluent/public/img/loaibonen.png" width="720" alt="CineFluent" />
 
-An AI-powered English-learning platform that turns movies and subtitles into interactive, personalized learning experiences.
+  <h1>CineFluent</h1>
 
+  <p><strong>Learn English naturally through movies, bilingual subtitles, adaptive AI and real-time practice.</strong></p>
 
+  <p>
+    <a href="https://github.com/MinLD/CineFluent-Project">
+      <img src="https://img.shields.io/badge/Repository-CineFluent-181717?logo=github" alt="Repository" />
+    </a>
+    <img src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs" alt="Next.js 16" />
+    <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=000000" alt="React 19" />
+    <img src="https://img.shields.io/badge/Flask-3.1-000000?logo=flask" alt="Flask 3.1" />
+    <img src="https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white" alt="MySQL 8" />
+    <img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker Compose" />
+  </p>
+</div>
 
-Repository
+What is CineFluent?
 
-Overview
+CineFluent turns movie subtitles into personalized English lessons. Learners watch films, interact with bilingual subtitles, save vocabulary, practise listening and speaking, and receive grammar exercises selected from their own learning history.
 
-CineFluent is a full-stack platform for learning English through movies. It combines synchronized bilingual subtitles, contextual vocabulary lookup, flashcards, dictation, shadowing, adaptive grammar exercises, an AI learning assistant, and real-time communication.
+Learn with movies
 
-The system does more than play videos. It analyzes subtitle sentences, tracks each learner's grammar mastery, and pauses playback to display a contextual cloze exercise when the learner is likely to struggle with an upcoming sentence.
+Adaptive grammar AI
 
-Core Features
+Bilingual subtitles, contextual lookup, flashcards and watch history.
 
-Interactive movie learning
+XLM-RoBERTa classifies 12 English tenses while DKT estimates learner mastery.
 
-Watch movies with timestamp-synchronized bilingual subtitles.
+Practise in context
 
-Look up words and phrases directly from subtitle lines.
+Learn together
 
-Save vocabulary as personal flashcards.
+Dictation, shadowing and AI-generated cloze exercises from real dialogue.
 
-Practise listening through subtitle-based dictation.
+One-to-one video calls with WebRTC/PeerJS and Socket.IO signaling.
 
-Practise pronunciation and fluency through shadowing.
+Why It Stands Out
 
-Resume movies from saved watch history.
+Adaptive playback: CineFluent looks ahead during a movie and pauses only when the learner is likely to struggle with an upcoming grammar pattern.
 
-Import movie metadata through TMDB and process YouTube sources with yt-dlp.
+Efficient subtitle processing: AI metadata is injected into VTT files, parsed in a Web Worker, and searched in O(log n) time.
 
-Adaptive grammar learning
+Context-aware AI: Gemini answers through Product-RAG instead of relying only on a general model response.
 
-Classify subtitle sentences across 12 English tense categories with XLM-RoBERTa.
+Production-style media delivery: Flask authorizes Google Drive media while Nginx handles the stream through X-Accel-Redirect.
 
-Generate contextual cloze exercises from subtitle sentences.
+Main Features
 
-Use spaCy to identify main verbs and generate distractors.
+Area
 
-Track correct and incorrect attempts with Deep Knowledge Tracing.
+Highlights
 
-Estimate mastery probability for each grammar tag.
+Movies
 
-Look ahead during playback and trigger a quiz when predicted mastery is low.
+YouTube/Google Drive sources, TMDB metadata, watch history and Nginx streaming
 
-Flashcards and personalized practice
+Subtitles
 
-Build a personal vocabulary collection from movie subtitles.
+Bilingual SRT/VTT, timestamp synchronization and contextual word lookup
 
-Generate exercises from saved flashcards and movie context.
+Learning
 
-Track exercise history and learning progress.
+Flashcards, dictation, shadowing, typing games and learning roadmaps
 
-Provide learning roadmaps and grammar review activities.
+Adaptive AI
 
-AI assistant and Product-RAG
+Grammar classification, cloze generation and mastery prediction
 
-Use Gemini to answer contextual learning and product-support questions.
+AI assistant
 
-Retrieve relevant CineFluent knowledge before generating a response.
+Gemini with Product-RAG using JSON or Qdrant vector storage
 
-Run Product-RAG with a local JSON vector store by default.
+Real-time
 
-Switch to Qdrant when an external vector database is required.
+WebRTC/PeerJS video calls and Socket.IO events
 
-Real-time communication
+Administration
 
-Support one-to-one audio and video calls with WebRTC/PeerJS.
+Users, roles, categories, movies, subtitles, reports and requests
 
-Use Socket.IO and Flask-SocketIO for signaling and real-time events.
+The AI Learning Loop
 
-Route production WebSocket traffic through Nginx.
+flowchart LR
+    Subtitle[Movie Subtitle] --> Grammar[XLM-RoBERTa]
+    Grammar --> VTT[VTT + AI Metadata]
+    VTT --> Player[Next.js Player]
+    Player --> DKT[DKT Mastery Check]
+    DKT --> Quiz[Adaptive Cloze Quiz]
+    Quiz --> History[Learning History]
+    History --> DKT
 
-Authentication and administration
+AI component
 
-Support JWT authentication with access and refresh tokens.
-
-Support Google OAuth authentication.
-
-Apply role-based access control for users and administrators.
-
-Manage users, roles, categories, movies, subtitles, reports, and movie requests.
-
-Store uploaded images through Cloudinary.
-
-Adaptive Learning Pipeline
-
-An administrator uploads bilingual subtitles for a movie.
-
-XLM-RoBERTa classifies subtitle sentences into 12 grammar tense categories.
-
-The backend generates cloze metadata and injects it into the exported VTT file.
-
-A Web Worker parses the VTT file outside the React render cycle.
-
-Binary search finds the current and upcoming subtitle in O(log n) time.
-
-DKT estimates whether the learner is likely to answer the upcoming grammar item correctly.
-
-If mastery is low, CineFluent pauses the video and opens an adaptive cloze exercise.
-
-The learner's result is stored and used to update future mastery predictions.
-
-System Architecture
-
-flowchart TD
-    Browser[Web Browser] --> Gateway[Nginx Gateway]
-    Gateway --> Frontend[Next.js 16 Frontend]
-    Gateway --> Backend[Flask REST API and Socket.IO]
-    Backend --> Database[(MySQL 8)]
-    Backend --> Media[Google Drive and Cloudinary]
-    Backend --> LearningAI[XLM-RoBERTa, DKT and spaCy]
-    Backend --> Assistant[Gemini and Product-RAG]
-    Browser <--> Peer[WebRTC Peer]
-
-Main data flows
-
-Video streaming: Flask authorizes the request, then Nginx uses X-Accel-Redirect to proxy the Google Drive media stream efficiently.
-
-Subtitles: SRT/VTT content is normalized, stored, exported to VTT, and enhanced with AI metadata.
-
-Adaptive learning: Subtitle context and attempt history flow through XLM-RoBERTa and DKT before the frontend triggers an exercise.
-
-AI assistant: Product-RAG retrieves relevant project knowledge before Gemini generates a response.
-
-Video calls: Socket.IO handles signaling while WebRTC/PeerJS carries peer-to-peer media.
-
-AI Components
-
-Component
-
-Purpose
+Role in CineFluent
 
 XLM-RoBERTa
 
@@ -138,111 +102,113 @@ Classifies subtitle sentences into 12 English tense categories.
 
 spaCy
 
-Identifies verbs and helps generate cloze-test distractors.
+Identifies verbs and generates distractors for cloze exercises.
 
-DKT-LSTM
+DKT-LSTM + ONNX Runtime
 
-Models learner knowledge from historical correct/incorrect attempts.
+Predicts mastery from historical correct/incorrect attempts.
 
-ONNX Runtime
+Gemini + Product-RAG
 
-Runs the exported DKT model in the Flask backend.
+Produces answers grounded in CineFluent's product and learning knowledge.
 
-Gemini
+Architecture
 
-Generates contextual explanations and assistant responses.
+flowchart TD
+    Browser[Web Browser] --> Nginx[Nginx Gateway]
+    Nginx --> Next[Next.js 16]
+    Nginx --> Flask[Flask API + Socket.IO]
+    Flask --> MySQL[(MySQL 8)]
+    Flask --> Media[Google Drive + Cloudinary]
+    Flask --> AI[Grammar AI + DKT + RAG]
+    Browser <--> Peer[WebRTC Peer]
 
-Product-RAG
+Tech Stack
 
-Retrieves CineFluent knowledge before response generation.
+<p>
+  <img src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs" alt="Next.js" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=000000" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/Ant_Design-6-0170FE?logo=antdesign&logoColor=white" alt="Ant Design" />
+  <img src="https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/Flask-3.1-000000?logo=flask" alt="Flask" />
+  <img src="https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white" alt="MySQL" />
+  <img src="https://img.shields.io/badge/Socket.IO-4-010101?logo=socketdotio" alt="Socket.IO" />
+  <img src="https://img.shields.io/badge/WebRTC-PeerJS-333333?logo=webrtc" alt="WebRTC" />
+  <img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/Nginx-009639?logo=nginx&logoColor=white" alt="Nginx" />
+</p>
 
-JSON/Qdrant vector store
-
-Stores and searches Product-RAG embeddings.
-
-Technology Stack
-
-Area
-
-Technologies
-
-Frontend
-
-Next.js 16, React 19, TypeScript 5.9, Tailwind CSS 4, Ant Design 6
-
-Client state and data
-
-TanStack Query, Zustand, Axios, Formik, React Hook Form
-
-Media and real-time
-
-HLS.js, PeerJS, Socket.IO Client, WebRTC
-
-Backend
-
-Python 3.11, Flask 3.1, Flask-SocketIO, Pydantic
-
-Database
-
-MySQL 8, SQLAlchemy 2, Flask-Migrate/Alembic
-
-Authentication
-
-Flask-JWT-Extended, Google OAuth 2.0, RBAC
-
-AI and NLP
-
-Transformers, PyTorch, XLM-RoBERTa, spaCy, ONNX Runtime, DKT-LSTM, Gemini
-
-Retrieval
-
-Product-RAG, JSON vector store, Qdrant
-
-Media storage
-
-Google Drive, Cloudinary, SRT/VTT
-
-Infrastructure
-
-Docker, Docker Compose, Nginx, GitHub Actions, AWS EC2/VPS
-
-Repository Structure
+<details>
+<summary><strong>Repository structure</strong></summary>
 
 CineFluent-Project/
 ├── client/Fe_CineFluent/          # Next.js frontend
-├── server/be_flask_cinefluent/    # Flask API, AI services and database models
-├── nginx/                         # Reverse proxy and media-streaming configuration
-├── rag_data/                      # Product-RAG source documents
-├── docs/                          # Technical notes and implementation runbooks
-├── docker-compose.yml             # Local/full-stack container orchestration
-└── .github/workflows/deploy.yml   # Docker build and AWS/VPS deployment workflow
+├── server/be_flask_cinefluent/    # Flask API, AI services and database
+├── nginx/                         # Gateway and media streaming
+├── rag_data/                      # Product-RAG knowledge sources
+├── docs/                          # Technical notes and runbooks
+├── docker-compose.yml             # Full application stack
+└── .github/workflows/deploy.yml   # Docker and AWS/VPS deployment
 
-Getting Started
+</details>
+
+<details>
+<summary><strong>Run with Docker Compose</strong></summary>
 
 Prerequisites
 
-Git
+Git, Docker and Docker Compose
 
-Docker and Docker Compose
+Google OAuth client
 
-A Google OAuth client
+Google service-account JSON with Drive access
 
-A Google service-account JSON file with access to the movie storage
+Cloudinary, Gemini and TMDB credentials
 
-Cloudinary credentials
-
-A Gemini API key
-
-A TMDB API key for movie metadata features
-
-1. Clone the repository
+Start the project
 
 git clone https://github.com/MinLD/CineFluent-Project.git
 cd CineFluent-Project
+docker compose up --build -d
+docker compose exec backend flask db upgrade
+docker compose exec backend flask seed --with-admin
 
-2. Create the root environment file
+Local services
 
-Create .env in the repository root. The following example contains the variables referenced by the current source code and Docker configuration:
+Service
+
+Address
+
+Nginx gateway
+
+http://localhost
+
+Next.js frontend
+
+http://localhost:3000
+
+Flask backend
+
+http://localhost:5000
+
+MySQL
+
+localhost:3306
+
+# Follow logs
+docker compose logs -f
+
+# Stop without deleting database data
+docker compose down
+
+</details>
+
+<details>
+<summary><strong>⚙️ Environment configuration</strong></summary>
+
+Create .env in the repository root:
 
 # MySQL
 MYSQL_ROOT_PASSWORD=change_me
@@ -250,7 +216,7 @@ MYSQL_DATABASE=cinefluent
 DATABASE_URL=mysql+pymysql://root:change_me@db:3306/cinefluent
 PRODUCTION_DATABASE_URL=
 
-# Flask and JWT
+# Flask and administrator
 SECRET_KEY=replace_with_a_long_random_secret
 FLASK_ENV=development
 ADMIN_EMAIL=admin@example.com
@@ -269,7 +235,7 @@ CLOUDINARY_API_SECRET=
 GEMINI_API_KEY=
 TMDB_API_KEY=
 
-# Frontend and backend URLs
+# Application URLs
 URL_BACKEND_INTERNAL=http://backend:5000/api
 URL_BACKEND_LOCAL=http://127.0.0.1:5000/api
 NEXT_PUBLIC_URL_BACKEND_LOCAL=http://127.0.0.1:5000
@@ -277,84 +243,34 @@ NEXT_PUBLIC_URL_FRONTEND_LOCAL=http://localhost:3000
 NEXT_PUBLIC_URL_FRONTEND_PRODUCTION=
 NEXT_PUBLIC_URL_FRONTEND_PROXY=/apiFe
 
-# Product-RAG: json or qdrant
+# Product-RAG
 PRODUCT_RAG_STORE=json
 PRODUCT_RAG_CHUNK_SIZE=1200
 PRODUCT_RAG_CHUNK_OVERLAP=120
 PRODUCT_RAG_EMBEDDING_DIM=256
 PRODUCT_RAG_JSON_STORE=
 
-# Optional Qdrant configuration
+# Optional Qdrant store
 QDRANT_URL=
 QDRANT_API_KEY=
 QDRANT_COLLECTION=cinefluent_product_rag
-
-Generate a secure value for SECRET_KEY; do not reuse the example passwords in production.
-
-3. Add Google Drive credentials
 
 Place the Google service-account file at:
 
 server/be_flask_cinefluent/app/utils/service-account.json
 
-This path is mounted into the backend container by docker-compose.yml. Never commit the real credential file.
+Do not commit .env, service-account files, API keys or private media URLs.
 
-4. Build and start the application
+</details>
 
-docker compose up --build -d
-
-5. Run database migrations
-
-docker compose exec backend flask db upgrade
-
-6. Seed roles and an administrator account
-
-docker compose exec backend flask seed --with-admin
-
-7. Open the services
-
-Service
-
-URL
-
-Nginx gateway
-
-http://localhost
-
-Next.js frontend
-
-http://localhost:3000
-
-Flask backend
-
-http://localhost:5000
-
-MySQL
-
-localhost:3306
-
-To view container logs:
-
-docker compose logs -f
-
-To stop the stack without deleting database data:
-
-docker compose down
-
-Development Commands
+<details>
+<summary><strong>💻 Run frontend and backend manually</strong></summary>
 
 Frontend
 
 cd client/Fe_CineFluent
 npm ci
 npm run dev
-
-Available scripts:
-
-npm run dev
-npm run build
-npm run start
-npm run lint
 
 Backend
 
@@ -365,15 +281,14 @@ pip install -r requirements.txt
 python -m spacy download en_core_web_sm
 python run.py
 
-For Windows PowerShell, activate the virtual environment with:
+On Windows PowerShell:
 
 .venv\Scripts\Activate.ps1
 
-When running services outside Docker, update DATABASE_URL and the frontend/backend URL variables to use locally reachable hosts.
+</details>
 
-API Modules
-
-The Flask application registers the following main API groups:
+<details>
+<summary><strong>Main API modules</strong></summary>
 
 Prefix
 
@@ -385,11 +300,11 @@ Authentication and token refresh
 
 /api/users
 
-User and profile management
+Users and profiles
 
 /api/videos
 
-Movies, streaming, subtitles, watch history and AI analysis
+Movies, streaming, subtitles, history and AI analysis
 
 /api/flashcards
 
@@ -405,11 +320,11 @@ Knowledge tracing and mastery updates
 
 /api/ai
 
-AI-assisted features
+AI-assisted learning features
 
 /api/chat
 
-Product-RAG learning assistant
+Product-RAG assistant
 
 /api/roadmap
 
@@ -423,45 +338,13 @@ Classroom features
 
 Administrative analytics
 
+</details>
+
 Deployment
 
-The repository includes a GitHub Actions workflow that:
-
-Builds the frontend and backend Docker images.
-
-Pushes the images to Docker Hub.
-
-Connects to the deployment server over SSH.
-
-Pulls the latest configuration and images.
-
-Restarts the Docker Compose stack.
-
-The workflow requires repository secrets for Docker Hub, Google OAuth build configuration, and the AWS/VPS SSH connection.
-
-Security Notes
-
-Never commit .env, service-account files, API keys, tokens, or private movie URLs.
-
-Use strong production values for MySQL, administrator, and Flask secrets.
-
-Restrict the Google service account to the minimum required Drive permissions.
-
-Keep Nginx as the public entry point in production instead of exposing Flask directly.
-
-Review CORS origins and deployment domains before publishing a production build.
-
-Project Information
-
-Type: Academic research and full-stack software engineering project
-
-Development period: December 2025 - May 2026
-
-Primary role: Full-stack Developer
-
-Repository: github.com/MinLD/CineFluent-Project
+GitHub Actions builds the frontend and backend images, pushes them to Docker Hub, and deploys the Docker Compose stack to AWS EC2/VPS through SSH.
 
 Author
 
-Do Dang Minh LuanGitHub: @MinLD
+Do Dang Minh Luan · Full-stack DeveloperGitHub · CineFluent Repository
 
